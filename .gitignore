@@ -26,3 +26,33 @@
 *.exe
 *.out
 *.app
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+
+# Compiled Dynamic libraries
+*.so
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+
+# Visual Studio
+Debug/
+Release/
+*.obj
+*.pdb
+*.opensdf
+*.sdf
+*.suo
+*.vcxproj.user
+
+# Miscellaneous
+*.pyc
+*.csv
+*.class
+*.jar
+*.stackdump
