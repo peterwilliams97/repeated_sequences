@@ -9,6 +9,14 @@ import os
 import sys
 
 
+def mkdir(dir):
+    """Create directory dir and ignore already exists errors"""
+    try:
+        os.makedirs(dir)
+    except:
+        pass
+
+
 def make_random_string(size):
     return ''.join(chr(random.randint(ord('a'), ord('z'))) for _ in xrange(size))
 
@@ -49,7 +57,7 @@ def make_repeats_doc(doc_size, n_repeats):
 
 
 def make_repeats_file(directory, doc_size, n_repeats):
-    path = os.path.join(directory, 'repeats=%d.txt' % n_repeats)
+    path = os.path.join(directory, 'pages=%d.txt' % n_repeats)
     path = os.path.abspath(path)
     repeats_doc = make_repeats_doc(doc_size, n_repeats)
     file(path, 'wb').write(repeats_doc)
@@ -71,7 +79,7 @@ def main():
     parser.add_option('-n', '--number', dest='num', default='5', help='number of documents')
     parser.add_option('-s', '--size', dest='size', default='1.0',
                       help='size of each document in MBytes')
-    parser.add_option('-d', '--directory', dest='directory', default='.',
+    parser.add_option('-d', '--directory', dest='directory', default='data.files',
                       help='Directory to create file in')
 
     options, args = parser.parse_args()
@@ -80,6 +88,7 @@ def main():
     min_repeats = int(options.min)
     n_documents = int(options.num)
     directory = options.directory
+    paths_list_path = os.path.join(directory, 'files.list')
 
     print('# size = %.3f Mbyte' % (doc_size / MBYTE))
     print('# min_repeats = %d' % min_repeats)
@@ -88,9 +97,15 @@ def main():
     print('# REPEATED_STRING = "%s", len=%d' % (REPEATED_STRING, len(REPEATED_STRING)))
     print('# %s' % ('-' * 80))
 
+    mkdir(directory)
+
+    paths_list = []
     for n_repeats in xrange(min_repeats, min_repeats + n_documents):
         path = make_repeats_file(directory, doc_size, n_repeats)
         print('%s  # %2d repeats' % (path, n_repeats))
+        paths_list.append(path)
+
+    file(paths_list_path, 'wt').write('\n'.join(paths_list))
 
 main()
 

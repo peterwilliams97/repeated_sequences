@@ -319,7 +319,6 @@ now.
 
 Conclusion
 ----------
-
 The practical value of the solutions discussed above is:
 
 * The naive solution for finding repeated substrings is impractical.

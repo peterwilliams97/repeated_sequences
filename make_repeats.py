@@ -286,4 +286,3 @@ def main():
         print('%s  # %2d repeats' % (path, num_repeats))
 
 main()
-

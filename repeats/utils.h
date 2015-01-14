@@ -7,16 +7,14 @@
 #include <map>
 #include <set>
 #include <vector>
-#include <functional>
 #include <algorithm>
 #include <cmath>
 #include <cctype>
 
 #include "mytypes.h"
 
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define NUMELEMS(a) (sizeof(a) / sizeof(a[0]))
-
-inline int MIN(int x, int y) { return x < y ? x : y; }
 
 /*
  * D() is for debugging
@@ -27,7 +25,8 @@ _D(const std::string &s, typename T x) {
     //std::cout << "dbg:" << s << "='" << x << "'" << std::endl;
 }
 
-inline void
+inline
+void
 _D(const std::string &s) {
    // std::cout << "dbg:" << s << std::endl;
 }
@@ -48,7 +47,7 @@ from_string(const std::string &s, typename T &x) {
  */
 template <class K, class V>
 std::list<K>
-get_keys_list(const std::map<K,V> &mp) {
+get_keys_list(const std::map<K, V> &mp) {
     std::list<K> keys;
     for (std::map<K,V>::const_iterator it = mp.begin(); it != mp.end(); it++) {
         keys.push_back(it->first);
@@ -57,11 +56,11 @@ get_keys_list(const std::map<K,V> &mp) {
 }
 
 /*
- * Return keys of map mp as a vector
+ * Return keys of map `mp` as a vector
  */
 template <class K, class V>
 std::vector<K>
-get_keys_vector(const std::map<K,V> &mp) {
+get_keys_vector(const std::map<K, V> &mp) {
     std::vector<K> keys;
     keys.reserve(mp.size());
     for (std::map<K,V>::const_iterator it = mp.begin(); it != mp.end(); it++) {
@@ -86,7 +85,7 @@ get_keys_vector(const std::map<K,V> &mp) {
  */
 template <class K, class V>
 std::set<K>
-get_keys_set(const std::map<K,V> &mp) {
+get_keys_set(const std::map<K, V> &mp) {
     std::vector<K> keys = get_keys_vector(mp);
     return std::set<K>(keys.begin(), keys.end());
 }
@@ -124,24 +123,24 @@ print_list(const std::string &name, const std::list<T> &lst) {
  */
 template <class T>
 void
-print_vector(const std::string &name, const std::vector<T> &lst, size_t n = std::numeric_limits<size_t>::max();) {
+print_vector(const std::string& name, const std::vector<T>& lst, size_t n=std::numeric_limits<size_t>::max()) {
     cout << name << ": " << lst.size() << " [";
     std::vector<T>::const_iterator end = lst.begin() + min(n, lst.size());
     for (std::vector<T>::const_iterator it = lst.begin(); it != end; ++it) {
         cout << "\"" << *it << "\", ";
     }
-    cout << "] "  << lst.size() << std:: endl;
+    cout << "] " << lst.size() << std:: endl;
 }
 
 /*
- * Print vector set to stdout
+ * Print set to stdout
  */
 template <class T>
 void
-print_set(const std::string &name, const std::set<T> &lst) {
+print_set(const std::string& name, const std::set<T>& lst) {
     cout << name << ": " << lst.size() << " [";
     for (std::set<T>::const_iterator it = lst.begin(); it != lst.end(); ++it) {
-	cout << *it << ", ";
+        cout << *it << ", ";
     }
     cout << "]" << std:: endl;
 }
@@ -187,8 +186,8 @@ get_gteq(typename std::vector<T>::const_iterator begin,
 template <class T>
 typename std::vector<T>::const_iterator
 get_gteq2(typename std::vector<T>::const_iterator begin2,
-         typename std::vector<T>::const_iterator end2,
-         const T val, size_t step_size) {
+          typename std::vector<T>::const_iterator end2,
+          const T val, size_t step_size) {
 
     // val <= smallest element in array so return smallest element
     if (val <= *begin2) {
@@ -227,7 +226,6 @@ get_gteq2(typename std::vector<T>::const_iterator begin2,
  * Return intersection of v1 and v2
  * Try to make v1 the smaller set as run time is
  *  v1.size() * log(v2.size())
- * !@#$ Use hash sets
  */
 template <class T>
 typename std::set<T>
@@ -263,7 +261,7 @@ trim_keys(std::map<K,V> &mp, const std::set<K> &keys) {
  */
 inline size_t
 next_power2(double x) {
-    return (size_t)pow(2.0, ceil(log(x) / LOG2));
+    return (size_t)pow(2.0, ceil(log(x)/LOG2));
 }
 
 /*
@@ -271,28 +269,32 @@ next_power2(double x) {
  * http://stackoverflow.com/questions/216823/whats-the-best-way-to-trim-stdstring
  */
 // trim from start
-inline std::string&
+inline
+std::string&
 ltrim(std::string &s) {
     s.erase(s.begin(), std::find_if(s.begin(), s.end(), std::not1(std::ptr_fun<int, int>(std::isspace))));
     return s;
 }
 
 // trim from end
-inline std::string&
+inline
+std::string&
 rtrim(std::string &s) {
     s.erase(std::find_if(s.rbegin(), s.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
     return s;
 }
 
 // trim from both ends
-inline std::string&
+inline
+std::string&
 trim(std::string &s) {
     return ltrim(rtrim(s));
 }
 
 // Functions in utils.cpp
 int string_to_int(const std::string s);
-int get_file_size(const std::string filename);
+size_t get_file_size(const std::string filename);
 byte *read_file(const std::string filename);
+void show_bytes(const std::string str);
 
 #endif // #define UTILS_H

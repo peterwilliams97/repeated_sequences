@@ -1,5 +1,7 @@
 #include <fstream>
 #include <iostream>
+#include <iomanip>
+#include <assert.h>
 #include <sys/stat.h>
 #include "mytypes.h"
 #include "utils.h"
@@ -12,15 +14,12 @@ string_to_int(const string s) {
     return from_string(s, x);
 }
 
-int
+size_t
 get_file_size(const string filename) {
     struct stat filestatus;
-    if (stat(filename.c_str(), &filestatus) < 0) {
-        cerr << "could not open '" << filename << "'" << endl;
-        return -1;
-    }
-
-    return (int)filestatus.st_size;
+    int ret = stat(filename.c_str(), &filestatus);
+    assert(ret == 0);
+    return filestatus.st_size;
 }
 
 byte *
@@ -37,12 +36,12 @@ read_file(const string filename) {
     if (!f.is_open()) {
         cerr << "could not open " << filename << endl;
         delete[] data;
-        return NULL;
+        return 0;
     }
 
     f.read((char *)data, size);
 
-    if (f.gcount() < size) {
+    if (f.gcount() < (streamsize)size) {
         cerr << "could not read " << filename << endl;
         delete[] data;
         data = NULL;
@@ -50,4 +49,13 @@ read_file(const string filename) {
 
     f.close();
     return data;
+}
+
+void
+show_bytes(const string str) {
+    cout << "[";
+    for (string::const_iterator s = str.begin(); s != str.end(); s++) {
+        cout << "0x" << hex << setfill('0') << setw(2) << (int)(byte)*s << ", ";
+    }
+    cout << "]";
 }

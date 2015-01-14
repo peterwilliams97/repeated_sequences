@@ -5,8 +5,6 @@
 #include "utils.h"
 #include "timer.h"
 #include "inverted_index.h"
-//#include "trie.h"
-//#include "sa.h"
 
 using namespace std;
 
@@ -33,7 +31,7 @@ static vector<string>
 get_filenames(const string &filelist) {
     ifstream f(filelist);
     if (!f.is_open()) {
-        cerr << "Unable to open '%s'" << filelist << endl;
+        cerr << "Unable to open '" << filelist << "'" << endl;
         return vector<string>();
     }
 
@@ -54,16 +52,12 @@ get_filenames(const string &filelist) {
     return filenames;
 }
 
-static
-double
+static double
 test_inverted_index(const vector<string> &filenames) {
 
     reset_elapsed_time();
 
     InvertedIndex *inverted_index = create_inverted_index(filenames);
-    if (inverted_index == NULL) {
-        return -1.0;
-    }
     show_inverted_index("initial", inverted_index);
 
     RepeatsResults repeats_results = get_all_repeats(inverted_index);
@@ -73,7 +67,7 @@ test_inverted_index(const vector<string> &filenames) {
     vector<string> repeats = repeats_results._longest;
 
     cout << "--------------------------------------------------------------------------" << endl;
-    cout << "converged = " << converged << endl;
+    cout << "converged = " << converged << ", repeats = " << repeats.size() << ", exacts = " << exacts.size() << endl;
     cout << "--------------------------------------------------------------------------" << endl;
     if (repeats.size() > 0) {
         cout << "Found " << repeats.size() << " repeated strings";
@@ -81,18 +75,27 @@ test_inverted_index(const vector<string> &filenames) {
             cout << " of length " << repeats.front().size();
         }
         cout << endl;
-       // print_vector("Repeated strings", repeats);
+        print_vector("Repeated strings", repeats);
+        for (int i = 0; i < repeats.size(); i++) {
+            cout << i << " : ";
+            show_bytes(repeats[i]);
+            cout << endl;
+        }
     }
 
     cout << "--------------------------------------------------------------------------" << endl;
     if (exacts.size() > 0) {
         cout << "Found " << exacts.size() << " exactly repeated strings";
         if (exacts.size() > 0) {
-            cout << " of length " << exacts.front().size();
+            cout << " of length " << dec << exacts.front().size();
         }
         cout << endl;
         print_vector("Exactly repeated strings", exacts);
-
+        for (int i = 0; i < exacts.size(); i++) {
+            cout << i << " : ";
+            show_bytes(exacts[i]);
+            cout << endl;
+        }
     }
 
     delete_inverted_index(inverted_index);
@@ -101,86 +104,6 @@ test_inverted_index(const vector<string> &filenames) {
     cout << "duration = " << duration << endl;
     return duration;
 }
-
-static
-double
-test_trie(const vector<string> &filenames) {
-
-    reset_elapsed_time();
-
-    int max_len = 50;
-    Trie *trie = create_trie(filenames, max_len);
-
-    RepeatsResults repeats_results = get_all_repeats_trie(trie);
-
-    bool converged = repeats_results._converged;
-    vector<string> exacts = repeats_results._exact;
-    vector<string> repeats = repeats_results._longest;
-
-    cout << "--------------------------------------------------------------------------" << endl;
-    cout << "converged = " << converged << endl;
-    cout << "--------------------------------------------------------------------------" << endl;
-    if (repeats.size() > 0) {
-        cout << "Found " << repeats.size() << " repeated strings"
-             << " of length " << repeats.front().size()
-            << endl;
-       // print_vector("Repeated strings", repeats);
-    }
-
-     if (exacts.size() > 0) {
-        cout << "Found " << exacts.size() << " exact strings"
-             << " of length " << exacts.front().size()
-            << endl;
-       // print_vector("Repeated strings", repeats);
-    }
-
-    delete_trie(trie);
-
-    double duration = get_elapsed_time();
-    cout << "duration = " << duration << endl;
-    return duration;
-}
-
-#if 0
-static
-double
-test_sa(const vector<string> &filenames) {
-
-    reset_elapsed_time();
-
-    int max_len = 50;
-    SA *sa = create_sa(filenames, max_len);
-
-    RepeatsResults repeats_results = get_all_repeats_sa(sa);
-
-    bool converged = repeats_results._converged;
-    vector<string> exacts = repeats_results._exact;
-    vector<string> repeats = repeats_results._longest;
-
-    cout << "--------------------------------------------------------------------------" << endl;
-    cout << "converged = " << converged << endl;
-    cout << "--------------------------------------------------------------------------" << endl;
-    if (repeats.size() > 0) {
-        cout << "Found " << repeats.size() << " repeated strings"
-             << " of length " << repeats.front().size()
-            << endl;
-       // print_vector("Repeated strings", repeats);
-    }
-
-     if (exacts.size() > 0) {
-        cout << "Found " << exacts.size() << " exact strings"
-             << " of length " << exacts.front().size()
-            << endl;
-       // print_vector("Repeated strings", repeats);
-    }
-
-    delete_sa(sa);
-
-    double duration = get_elapsed_time();
-    cout << "duration = " << duration << endl;
-    return duration;
-}
-#endif
 
 void
 show_stats(const vector<double> &d) {
@@ -193,8 +116,8 @@ show_stats(const vector<double> &d) {
         max_d = max(max_d, *it);
         total += *it;
     }
-    unsigned int n = d.size();
-    double ave = total / (double)n;
+    size_t n = d.size();
+    double ave = total/(double)n;
     double med = d[n/2];
     cout << "min="<< min_d << ", max="<< max_d << ", ave=" << ave << ", med=" << med << endl;
 }
@@ -210,7 +133,8 @@ multi_test(const string &filelist, int n) {
     }
 }
 
-int main(int argc, char *argv[]) {
+int
+main(int argc, char *argv[]) {
     if (argc < 2) {
         cerr << "Usage: " << argv[0] << " filelist" << endl;
         return 1;
@@ -223,14 +147,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    double duration = test_inverted_index(filenames);
-    //test_sa(filenames);
-
-    if (duration < 0.0) {
-        cerr << "FAILED" << endl;
-        return 1;
-    }
-
-    cout << "SUCCEEDED" << endl;
+    test_inverted_index(filenames);
     return 0;
 }
