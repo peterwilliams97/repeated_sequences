@@ -30,7 +30,7 @@ struct RequiredRepeats {
     // Size of each repeat
     double repeat_size() const { return (double)_size / (double)_num; }
 
-    RequiredRepeats(const std::string doc_name, unsigned int num, size_t size):
+    RequiredRepeats(const std::string doc_name, unsigned int num, size_t size) :
         _doc_name(doc_name), _num(num), _size(size) {}
 
     RequiredRepeats() : _doc_name(""), _num(0), _size(0) {}
@@ -43,8 +43,9 @@ static const string PATTERN_REPEATS = "pages=?(\\d+)";
 /*
  * Comparison function to sort documents in order of size of repeat
  */
-static bool
-comp_reqrep(const RequiredRepeats &rr1, const RequiredRepeats &rr2) {
+static
+bool
+comp_reqrep(const RequiredRepeats& rr1, const RequiredRepeats& rr2) {
      return rr1.repeat_size() < rr2.repeat_size();
 }
 
@@ -83,6 +84,11 @@ get_reqreps(const vector<string> &filenames) {
     return reqreps;
 }
 
+/*
+ * A `Term` is a string  !@#$
+ */
+typedef string Term;
+
 vector<int>
 get_counts_per_doc(const map<int, vector<offset_t>>& _offsets_map) {
     vector<int> counts;
@@ -104,7 +110,7 @@ get_counts_per_doc(const map<int, vector<offset_t>>& _offsets_map) {
  * http://en.wikipedia.org/wiki/Inverted_index
  */
 struct Postings {
-    // Total # occurences of term in all documents
+    // Total # occurrences of term in all documents
     size_t _total_terms;
 
     // Indexes of docs that term occurs in
@@ -157,15 +163,15 @@ struct Postings {
  * Typical usage is to construct an initial InvertedIndex whose terms
  *  are all bytes that occur in the corpus then to replace these
  *  with each string that occurs in the corpus. This is done
- *  bottom-up, replacing _postings_map[s] with _postings_map[s+b]
+ *  bottom-up, replacing _postings_map[s] with _postings_map[s + b]
  *  for all bytes b to get from terms of length n to terms of
  *  length n + 1
  */
 struct InvertedIndex {
     // `_postings_map[term]` is the Postings of string `term`
-    map<string, Postings> _postings_map;
+    map<Term, Postings> _postings_map;
 
-    // `_docs_map[i]` = filename + min reqreps of document index i.
+    // `_docs_map[i]` = filename + min required repeats of document index i.
     //  The Postings in `_postings_map` index into this map
     map<int, RequiredRepeats> _docs_map;
 
@@ -192,7 +198,7 @@ struct InvertedIndex {
         _docs_map[doc_index] = reqrep;
 
         for (set<string>::iterator it = common_keys.begin(); it != common_keys.end(); it++) {
-            const string &term = *it;
+            const Term &term = *it;
             const vector<offset_t> &offsets = term_offsets[term];
             _postings_map[term].add_offsets(doc_index, offsets);
         }
@@ -200,7 +206,7 @@ struct InvertedIndex {
 
     size_t size() const {
         size_t sz = 0;
-        for (map<string, Postings>::const_iterator it = _postings_map.begin(); it != _postings_map.end(); it++) {
+        for (map<string, Postings>::const_iterator it = _postings_map.begin(); it != _postings_map.end(); ++it) {
             sz += it->second.size();
         }
         return sz;
@@ -245,7 +251,8 @@ get_doc_index(InvertedIndex *inverted_index, const string &doc_name) {
 #endif
 
 #if 0
-static bool
+static
+bool
 check_sorted(const vector<offset_t> &offsets) {
     for (unsigned int i = 1; i < offsets.size(); i++) {
         assert(offsets[i] > offsets[i-1]);
@@ -551,7 +558,7 @@ inline
 Postings
 get_sb_postings(InvertedIndex *inverted_index,
                 map<string, Postings> &strings_map,
-                const string s, const string b) {
+                const Term s, const Term b) {  // Term& ??? !@#$
 
     unsigned int m = (unsigned int)s.size();
     Postings &s_postings = strings_map[s];
@@ -687,7 +694,8 @@ static
 bool
 is_part_of_cdca(const string& str) {
     return is_part_of_pattern(str, CDCA, sizeof(CDCA))
-        || is_part_of_pattern(str, PATTERN2, sizeof(PATTERN2));
+        || is_part_of_pattern(str, PATTERN2, sizeof(PATTERN2))
+        ;
 }
 
 #define MIN_STR_SIZE 4
@@ -695,9 +703,11 @@ is_part_of_cdca(const string& str) {
 static
 bool
 is_allowed_for_printer(const string& str) {
+#if 0
     if (is_part_of_cdca(str)) {
         return false;
     }
+#endif
     size_t n = str.size();
     if (n < MIN_STR_SIZE) {
         return true;
@@ -713,15 +723,15 @@ is_allowed_for_printer(const string& str) {
 
 inline
 vector<string>
-get_exact_matches(map<int, RequiredRepeats> &docs_map,
-                  const map<string, Postings> &repeated_strings_map) {
+get_exact_matches(map<int, RequiredRepeats>& docs_map,
+                  const map<string, Postings>& repeated_strings_map) {
     vector<string> exact_matches;
 
-     for (map<string, Postings>::const_iterator it = repeated_strings_map.begin(); it != repeated_strings_map.end(); it++) {
+     for (map<string, Postings>::const_iterator it = repeated_strings_map.begin(); it != repeated_strings_map.end(); ++it) {
         const string &s = it->first;
         const map<int, vector<offset_t>> &offsets_map = it->second._offsets_map;
         bool is_match = true;
-        for (map<int, vector<offset_t>>::const_iterator jt = offsets_map.begin(); jt != offsets_map.end(); jt++) {
+        for (map<int, vector<offset_t>>::const_iterator jt = offsets_map.begin(); jt != offsets_map.end(); ++jt) {
             int d = jt->first;
             const RequiredRepeats &rr = docs_map[d];
             // !@#$ Strictly, non-overlapping count, not size()
@@ -882,14 +892,16 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_substring_len) {
 
             string s = iv->first;
             vector<string> bytes = iv->second;
-            for (vector<string>::iterator ib = bytes.begin(); ib != bytes.end(); ib++) {
+            for (vector<string>::iterator ib = bytes.begin(); ib != bytes.end(); ++ib) {
                 string b = *ib;
                 Postings postings = get_sb_postings(inverted_index, repeated_strings_map, s, b);
                 if (!postings.empty()) {
                     // !@#$%
+#if 1
                     if (is_allowed_for_printer(s + b)) {
                        repeated_strings_map[s + b] = postings;
                     }
+#endif
                 }
             }
             repeated_strings_map.erase(s);
