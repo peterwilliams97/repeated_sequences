@@ -110,7 +110,7 @@ copy_map(const std::map<K,V> &mp) {
  */
 template <class T>
 void
-print_list(const std::string &name, const std::list<T> &lst) {
+print_list(const std::string& name, const std::list<T>& lst) {
     cout << name << ": " << lst.size() << " [";
     for (std::list<T>::const_iterator it = lst.begin(); it != lst.end(); ++it) {
         cout << "\"" << *it << "\", ";
@@ -131,6 +131,9 @@ print_vector(const std::string& name, const std::vector<T>& lst, size_t n=std::n
     }
     cout << "] " << lst.size() << std:: endl;
 }
+
+void
+print_term_vector(const std::string& name, const std::vector<Term>& lst, size_t n=std::numeric_limits<size_t>::max());
 
 /*
  * Print set to stdout

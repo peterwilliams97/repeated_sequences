@@ -58,4 +58,21 @@ show_bytes(const string str) {
         cout << "0x" << hex << setfill('0') << setw(2) << (int)(byte)*s << ", ";
     }
     cout << "]";
+    cout << dec;
+}
+
+void
+print_term_vector(const std::string& name, const std::vector<Term>& lst, size_t n) {
+    cout << name << ": " << lst.size() << " [";
+    std::vector<Term>::const_iterator end = lst.begin() + min(n, lst.size());
+    for (std::vector<Term>::const_iterator it = lst.begin(); it != end; ++it) {
+        cout << "\"" << *it << "\" (";
+        const Term& term = *it;
+        for (Term::const_iterator jt = term.begin(); jt != term.end(); ++jt) {
+            cout << "0x" << hex << (int)(unsigned char)*jt << ", ";
+        }
+         cout << "), ";
+    }
+    cout << "] " << lst.size() << std:: endl;
+    cout << dec;
 }

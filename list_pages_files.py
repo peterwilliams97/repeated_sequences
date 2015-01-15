@@ -42,7 +42,9 @@ def match_pages(name_ext):
 
 if __name__ == '__main__':
     import optparse
-    parser = optparse.OptionParser('python ' + sys.argv[0] + ' <path> <pattern>')
+    parser = optparse.OptionParser('python ' + sys.argv[0] + ' <path> [options]')
+    parser.add_option('-x', '--exclude', dest='exclude', default=None,
+                      help='Exclude files matching this pattern')
 
     options, args = parser.parse_args()
     if len(args) < 1:
@@ -51,9 +53,12 @@ if __name__ == '__main__':
         exit(1)
 
     dir_name = args[0]
+    re_exclude = re.compile(options.exclude) if options.exclude else None
 
     path_list = list(recursive_glob(dir_name, match_pages))
     path_list.sort(key=lambda s: (-num_pages(s), s.lower(), s))
+    if re_exclude:
+        path_list = [path for path in path_list if not re_exclude.search(path)]
 
     for path in path_list:
         print(path)

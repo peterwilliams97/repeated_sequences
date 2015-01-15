@@ -84,11 +84,6 @@ get_reqreps(const vector<string> &filenames) {
     return reqreps;
 }
 
-/*
- * A `Term` is a string  !@#$
- */
-typedef string Term;
-
 vector<int>
 get_counts_per_doc(const map<int, vector<offset_t>>& _offsets_map) {
     vector<int> counts;
@@ -673,6 +668,7 @@ get_longest_exact_matches(map<int, RequiredRepeats> &docs_map,
 
 const byte CDCA[] = {0xcd, 0xca, 0x10, 0x00, 0x00, 0x18, 0x00, 0x01, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 const byte PATTERN2[] = {0x00, 0x01, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+const byte PATTERN3[] = {0x81, 0x22, 0x81, 0x22};
 
 static
 bool
@@ -695,6 +691,7 @@ bool
 is_part_of_cdca(const string& str) {
     return is_part_of_pattern(str, CDCA, sizeof(CDCA))
         || is_part_of_pattern(str, PATTERN2, sizeof(PATTERN2))
+        || is_part_of_pattern(str, PATTERN3, sizeof(PATTERN3))
         ;
 }
 
@@ -703,7 +700,7 @@ is_part_of_cdca(const string& str) {
 static
 bool
 is_allowed_for_printer(const string& str) {
-#if 0
+#if 1
     if (is_part_of_cdca(str)) {
         return false;
     }
@@ -806,8 +803,8 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_substring_len) {
             if (em.size() >= 3) {
                 show_exact_matches = true;
             }
-            if (show_exact_matches) {
-                print_vector(" *** exact matches", em, 3);
+            if (show_exact_matches && em.size() > 0) {
+                print_term_vector(" *** exact matches", em, 3);
                 exact_matches = em;
             }
         }
@@ -872,8 +869,8 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_substring_len) {
         //print_vector("   valid_s_b", get_keys_vector(valid_s_b));
         cout << repeated_strings.size() << " strings * "
              << repeated_bytes.size() << " bytes = "
-             << repeated_strings.size() * repeated_bytes.size() << " vs "
-             << get_map_vector_size(valid_s_b) << " valid_s_b, "
+             << repeated_strings.size() * repeated_bytes.size() << " ("
+             << get_map_vector_size(valid_s_b) << " valid), "
              << inverted_index->size() << " total offsets"
              << endl;
 #endif
