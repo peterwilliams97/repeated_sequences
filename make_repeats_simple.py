@@ -106,6 +106,7 @@ def main():
         paths_list.append(path)
 
     file(paths_list_path, 'wt').write('\n'.join(paths_list))
+    print('Files list: "%s"' % paths_list_path)
 
 main()
 

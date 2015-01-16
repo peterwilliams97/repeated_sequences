@@ -76,7 +76,7 @@ test_inverted_index(const vector<string> &filenames) {
         }
         cout << endl;
         print_vector("Repeated strings", repeats);
-        for (int i = 0; i < repeats.size(); i++) {
+        for (int i = 0; i < (int)repeats.size(); i++) {
             cout << i << " : ";
             show_bytes(repeats[i]);
             cout << endl;
@@ -91,7 +91,7 @@ test_inverted_index(const vector<string> &filenames) {
         }
         cout << endl;
         print_vector("Exactly repeated strings", exacts);
-        for (int i = 0; i < exacts.size(); i++) {
+        for (int i = 0; i < (int)exacts.size(); i++) {
             cout << i << " : ";
             show_bytes(exacts[i]);
             cout << endl;

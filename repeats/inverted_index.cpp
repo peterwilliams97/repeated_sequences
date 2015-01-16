@@ -837,7 +837,7 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_substring_len) {
         cout << "get_all_repeats: num repeated strings=" << repeated_strings.size()
              << ", len= " << m
              << ", time= " << get_elapsed_time() << endl;
-        for (int i = 0; i < MIN(3, repeated_strings.size()); i++) {
+        for (int i = 0; i < min(3, (int)repeated_strings.size()); i++) {
             string& s = repeated_strings[i];
             print_vector(s, repeated_strings_map[s].counts_per_doc()); // get_counts_per_doc(repeated_strings_map[s].);
         }
