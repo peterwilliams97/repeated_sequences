@@ -49,8 +49,8 @@ doc[d] for d = 1..D is hopelessly inefficient.
     for d in 1..D:
         for all substrings s of length 1..|doc[d]| / num[d] in doc[d]:
             for e in 1..D:
-                if s occurs num[e] times in doc[e] and |s| > |longest_s|:
-                    longest_s = s
+                if s occurs num[e] times in doc[e] and |s| > longest_s:
+                    longest_s = |s|
 
 
 This would take time proportional to
