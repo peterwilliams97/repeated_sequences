@@ -2,7 +2,7 @@
  * Use an inverted index to find the longest substring(s) that is repeated
  *  a specified number of times in a corpus of documents.
  *
- * Documentation in https://github.com/peterwilliams97/repeats
+ * Documentation in https://github.com/peterwilliams97/repeated_sequences
  */
 #define INNER_LOOP 4
 
@@ -15,8 +15,7 @@
 
 using namespace std;
 
-/* 
- * 
+/*
  *  Params:
  *      offsets_map: {doc index: offsets in doc}
  *  Returns:
@@ -500,15 +499,15 @@ get_non_overlapping_count(const vector<offset_t>& offsets, size_t m) {
  *  are repeated a sufficient number of times in each document)
  *
  *  Params:
- *      inverted_index: The InvertedIndex to update
- *      term_postings_map: length of Term s
+ *      inverted_index: The InvertedIndex
+ *      term_postings_map: All Posting of current term length !@#$ Could get this from InvertedIndex
  *      b_offsets: All offsets of Term b in a document
  *  Returns:
  *      Offsets of all s + b Terms in the document
  */
 inline
 Postings
-get_sb_postings(InvertedIndex *inverted_index,
+get_sb_postings(const InvertedIndex *inverted_index,
                 const map<Term, Postings>& term_postings_map,
                 const Term& s, const Term& b) {
 
@@ -517,7 +516,7 @@ get_sb_postings(InvertedIndex *inverted_index,
     const Postings& b_postings = inverted_index->_postings_map.at(b);
     Postings sb_postings;
 
-    map<int, RequiredRepeats>& docs_map = inverted_index->_docs_map;
+    const map<int, RequiredRepeats>& docs_map = inverted_index->_docs_map;
     for (map<int, RequiredRepeats>::const_iterator it = docs_map.begin(); it != docs_map.end(); ++it) {
         int doc_index = it->first;
         const vector<offset_t>& s_offsets = s_postings._offsets_map.at(doc_index);
@@ -573,9 +572,9 @@ is_exact_match(map<int, RequiredRepeats>& docs_map,
 }
 
 map<string, map<int, offset_t>>
-get_valid_string_counts(const map<string, Postings>& repeated_term_postings_map) {
+get_valid_string_counts(const map<string, Postings>& term_m_postings_map) {
     map<string, map<int, offset_t>> string_counts;
-    for (map<string, Postings>::const_iterator it = repeated_term_postings_map.begin(); it != repeated_term_postings_map.end(); ++it) {
+    for (map<string, Postings>::const_iterator it = term_m_postings_map.begin(); it != term_m_postings_map.end(); ++it) {
         const string& s = it->first;
         const map<int, vector<offset_t>>& offsets_map = it->second._offsets_map;
         map<int, offset_t> doc_counts;
@@ -683,13 +682,13 @@ is_allowed_for_printer(const Term& str) {
     return false;
 }
 
-static inline
-vector<Term>
+inline
+const vector<Term>
 get_exact_matches(const map<int, RequiredRepeats>& docs_map,
-                  const map<Term, Postings>& repeated_term_postings_map) {
+                  const map<Term, Postings>& term_m_postings_map) {
     vector<Term> exact_matches;
 
-     for (map<Term, Postings>::const_iterator it = repeated_term_postings_map.begin(); it != repeated_term_postings_map.end(); ++it) {
+     for (map<Term, Postings>::const_iterator it = term_m_postings_map.begin(); it != term_m_postings_map.end(); ++it) {
         const Term& s = it->first;
         const map<int, vector<offset_t>>& offsets_map = it->second._offsets_map;
         bool is_match = true;
@@ -723,11 +722,11 @@ get_exact_matches(const map<int, RequiredRepeats>& docs_map,
  * THIS IS THE MAIN FUNCTION
  *
  * Basic idea
- *  `repeated_term_postings_map` contains repeated strings (worst case 4 x size of all docs)
+ *  `term_m_postings_map` contains repeated strings (worst case 4 x size of all docs)
  *  in each inner loop over repeated_bytes
- *      repeated_bytes_map[s] is replaced by <= ALPHABET_SIZE x repeated_bytes_map[s + b]
- *      total size cannot grow because all s + b strings are contained in repeated_bytes_map[s]
- *      (NOTE Could be smarter and use repeated_bytes_map for strings of length 1)
+ *      byte_postings_map[s] is replaced by <= ALPHABET_SIZE x byte_postings_map[s + b]
+ *      total size cannot grow because all s + b strings are contained in byte_postings_map[s]
+ *      (NOTE Could be smarter and use byte_postings_map for strings of length 1)
  *      strings that do not occur often enough in all docs are filtered out
  *
  */
@@ -735,19 +734,19 @@ RepeatsResults
 get_all_repeats(InvertedIndex *inverted_index, size_t max_substring_len) {
 
     // Postings Map of terms of length 1
-    map<Term, Postings>& repeated_bytes_map = inverted_index->_postings_map;
+    const map<Term, Postings>& byte_postings_map = inverted_index->_postings_map;
 
-    // Postings Map of terms of length m + 1 constructed from from terms of length m
-    map<Term, Postings> repeated_term_postings_map = copy_map(repeated_bytes_map);
+    // Postings Map of terms of length m + 1 is constructed from from terms of length m
+    map<Term, Postings> term_m_postings_map = copy_map(byte_postings_map);
 
 #if VERBOSITY >= 1
-    cout << "get_all_repeats: repeated_bytes=" << repeated_bytes_map.size()
-         << ",repeated_strings=" << repeated_term_postings_map.size()
+    cout << "get_all_repeats: repeated_bytes=" << byte_postings_map.size()
+         << ",repeated_strings=" << term_m_postings_map.size()
          << ",max_substring_len=" << max_substring_len
          << endl;
 #endif
-    vector<Term> repeated_bytes = get_keys_vector(repeated_bytes_map);
-    vector<Term> repeated_terms = get_keys_vector(repeated_term_postings_map);
+    vector<Term> repeated_bytes = get_keys_vector(byte_postings_map);
+    vector<Term> repeated_terms = get_keys_vector(term_m_postings_map);
 
     // Track the last case of exact matches
     vector<Term> exact_matches;
@@ -764,8 +763,9 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_substring_len) {
     // offsets of substrings of length m
     for (offset_t m = 1; m <= max_substring_len; m++) {
 
-        {
-            vector<Term>& em = get_exact_matches(inverted_index->_docs_map, repeated_term_postings_map);
+        {   // Keep track of exact matches
+            // We may need to backtrack to the longest exact match term
+            const vector<Term>& em = get_exact_matches(inverted_index->_docs_map, term_m_postings_map);
             if (em.size() >= 3) {
                 show_exact_matches = true;
             }
@@ -777,14 +777,14 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_substring_len) {
 
 #if 0      // !@#$%
         {
-           vector<string> keys = get_keys_vector(repeated_term_postings_map);
+           vector<string> keys = get_keys_vector(term_m_postings_map);
             for (vector<string>::iterator it = keys.begin(); it != keys.end(); ++it) {
                 if (it->size() > 3) {
                     const unsigned char *data = (const unsigned char *)it->c_str();
                     if (data[0] == 0xcd
                             && data[1] == 0xca
                             && data[2] == 0x10) {
-                        repeated_term_postings_map.erase(*it);
+                        term_m_postings_map.erase(*it);
                     }
                 }
             }
@@ -805,7 +805,7 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_substring_len) {
              << ", time= " << get_elapsed_time() << endl;
         for (int i = 0; i < min(3, (int)repeated_terms.size()); i++) {
             Term& s = repeated_terms[i];
-            print_vector(term_to_string(s), repeated_term_postings_map[s].counts_per_doc()); // get_counts_per_doc(repeated_term_postings_map[s].);
+            print_vector(term_to_string(s), term_m_postings_map[s].counts_per_doc());
         }
 #endif
 #if VERBOSITY >= 2
@@ -840,15 +840,15 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_substring_len) {
              << inverted_index->size() << " total offsets"
              << endl;
 #endif
-        // Remove from `repeated_term_postings_map` the offsets of all length n strings that won't be
+        // Remove from `term_m_postings_map` the offsets of all length n strings that won't be
         // used to construct length n + 1 strings below
         for (vector<Term>::const_iterator is = repeated_terms.begin(); is != repeated_terms.end(); ++is) {
             if (valid_s_b.find(*is) == valid_s_b.end()) {
-                repeated_term_postings_map.erase(*is);
+                term_m_postings_map.erase(*is);
             }
         }
 
-        // Replace repeated_term_postings_map[s] with repeated_term_postings_map[s + b] for all b in bytes that
+        // Replace term_m_postings_map[s] with term_m_postings_map[s + b] for all b in bytes that
         // have survived the valid_s_b filtering above
         // This cannot increase total number of offsets as each s + b starts with s
         for (map<Term, vector<Term>>::const_iterator iv = valid_s_b.begin(); iv != valid_s_b.end(); ++iv) {
@@ -857,26 +857,26 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_substring_len) {
             const vector<Term> bytes = iv->second;
             for (vector<Term>::const_iterator ib = bytes.begin(); ib != bytes.end(); ++ib) {
                 const Term b = *ib;
-                Postings postings = get_sb_postings(inverted_index, repeated_term_postings_map, s, b);
+                const Postings postings = get_sb_postings(inverted_index, term_m_postings_map, s, b);
                 if (!postings.empty()) {
                     // !@#$%
 #if 1
                     if (is_allowed_for_printer(concat(s, b))) {
-                       repeated_term_postings_map[concat(s, b)] = postings;
+                       term_m_postings_map[concat(s, b)] = postings;
                     }
 #endif
                 }
             }
-            repeated_term_postings_map.erase(s);
+            term_m_postings_map.erase(s);
         }
 
         // If there are no matches then we were done in the last pass
-        if (repeated_term_postings_map.size() == 0) {
+        if (term_m_postings_map.size() == 0) {
             converged = true;
             break;
         }
 
-        repeated_terms = get_keys_vector(repeated_term_postings_map);
+        repeated_terms = get_keys_vector(term_m_postings_map);
     }
 
 #if VERBOSITY >= 1

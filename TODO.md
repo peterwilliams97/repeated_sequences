@@ -13,3 +13,9 @@
 * Reduce copying
 * python glob wrapper
 * make naming consitent between README, cpp and py
+
+* Partial match. ie Macth m of n documents 1 <= m <= n
+* map -> unordered_map ?
+* set -> unordered_set
+* suffix array
+* neighborhoods
