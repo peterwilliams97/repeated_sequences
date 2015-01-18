@@ -15,11 +15,17 @@
 
 using namespace std;
 
-// !@#$ document this
+/* 
+ * 
+ *  Params:
+ *      offsets_map: {doc index: offsets in doc}
+ *  Returns:
+ *      vector of #offsets in each doc
+ */
 vector<int>
-get_counts_per_doc(const Map<int, vector<offset_t>>& _offsets_map) {
+get_counts_per_doc(const map<int, vector<offset_t>>& offsets_map) {
     vector<int> counts;
-    for (Map<int, vector<offset_t>>::const_iterator it = _offsets_map.begin(); it != _offsets_map.end(); ++it) {
+    for (map<int, vector<offset_t>>::const_iterator it = offsets_map.begin(); it != offsets_map.end(); ++it) {
         counts.push_back((int)it->second.size());
     }
     return counts;
@@ -28,9 +34,6 @@ get_counts_per_doc(const Map<int, vector<offset_t>>& _offsets_map) {
 /*
  * A Postings is a list of lists of offsets of a particular term (substring)
  *  in all documents in a corpus.
- *
- * NOTE: A term is stored as a string and can represent a string
- *  or a byte
  *
  *  _offsets_map[i] stores the offsets in document i
  *
@@ -45,11 +48,11 @@ struct Postings {
 
     // _offsets_map[i] = offsets of term in document with index i
     //  Each _offsets_map[i] is sorted smallest to largest
-    Map<int, vector<offset_t>> _offsets_map;
+    map<int, vector<offset_t>> _offsets_map;
 
     // Optional
     // ends[i] = offset of end of term in document with index i
-    //Map<int, vector<offset_t>> _ends_map;
+    //map<int, vector<offset_t>> _ends_map;
 
     // All fields are zero'd on construction
     // (The containers do this by default)
@@ -87,6 +90,83 @@ struct Postings {
     }
 };
 
+// Number of bytes to ignore at start of all files
+// !@#$% Should be a tunable param
+#define HEADER_SIZE 484
+//#define HEADER_SIZE 0
+
+/*
+ * Read file named `path` into a map of {byte: all offsets of byte in a document}
+ *  and return the map
+ * Only read in offsets of bytes in allowed_bytes that occur >= min_repeats
+ *  times
+ */
+static
+map<Term, vector<offset_t>>
+get_doc_offsets_map(const string& path, set<Term>& allowed_terms, unsigned int min_repeats) {
+
+    offset_t counts[ALPHABET_SIZE] = {0};
+
+    size_t length = get_file_size(path);
+    byte *in_data = read_file(path);
+    byte *end = in_data + length;
+
+    byte *data = in_data + HEADER_SIZE;
+
+    // Pass through the document once to get counts of all bytes
+    for (byte *p = data; p < end; p++) {
+        counts[*p]++;
+    }
+
+    // valid_bytes are those with sufficient counts
+    set<Term> valid_bytes;
+    for (int b = 0; b < ALPHABET_SIZE; b++) {
+        if (counts[b] >= min_repeats) {
+            valid_bytes.insert(byte_to_term(b));
+        }
+    }
+
+    // We use only the bytes that are valid for all documents so far
+    allowed_terms = get_intersection(allowed_terms, valid_bytes);
+
+    // We have counts so we can pre-allocate data structures
+    map<Term, vector<offset_t>> offsets_map;
+    bool allowed_bytes[ALPHABET_SIZE];
+    vector<offset_t>::iterator offsets_ptr[ALPHABET_SIZE];
+    for (int b = 0; b < ALPHABET_SIZE; b++) {
+        Term s = byte_to_term(b);
+        bool allowed = allowed_terms.find(s) != allowed_terms.end();
+        allowed_bytes[b] = allowed;
+        if (allowed) {
+            offsets_map[s] = vector<offset_t>(counts[b]);
+            offsets_ptr[b] = offsets_map[s].begin();
+        }
+    }
+
+    // Scan the document a second time and read in the bytes
+    offset_t ofs = 0;
+    for (byte *p = data; p < end; p++) {
+        if (allowed_bytes[*p]) {
+            *(offsets_ptr[*p]) = ofs;
+            ofs++;
+            offsets_ptr[*p]++;
+        }
+    }
+
+    delete[] in_data;
+
+    // Report what was read to stdout
+#if VERBOSITY >= 2
+    cout << "get_doc_offsets_map(" << path << ") " << offsets_map.size() << " {";
+    for (map<string, vector<offset_t>>::iterator it = offsets_map.begin(); it != offsets_map.end(); ++it) {
+        cout << it->first << ":" << it->second.size() << ", ";
+        //check_sorted(it->second);
+    }
+    cout << "}" << endl;
+#endif
+    return offsets_map;
+}
+
 /*
  * An InvertedIndex is a Map of Postings of a set of terms across
  *  all documents in a corpus.
@@ -98,49 +178,68 @@ struct Postings {
  *  are all bytes that occur in the corpus then to replace these
  *  with each string that occurs in the corpus. This is done
  *  bottom-up, replacing _postings_map[s] with _postings_map[s + b]
- *  for all bytes b to get from terms of length n to terms of
- *  length n + 1
+ *  for all bytes b to get from terms of length m to terms of
+ *  length m + 1
  */
 struct InvertedIndex {
-    // `_postings_map[term]` is the Postings of string `term`
-    Map<Term, Postings> _postings_map;
+    // `_postings_map[term]` is the Postings of Term `term`
+    map<Term, Postings> _postings_map;
 
     // `_docs_map[i]` = path + min required repeats of document index i.
-    //  The Postings in `_postings_map` index into this Map
-    Map<int, RequiredRepeats> _docs_map;
+    //  The Postings in `_postings_map` index into this map
+    map<int, RequiredRepeats> _docs_map;
 
     // `_allowed_terms` is all valid terms
     set<Term> _allowed_terms;
 
+private:
     InvertedIndex() {
         // Start `_allowed_terms` as all single bytes
         for (int b = 0; b < ALPHABET_SIZE; b++) {
-            _allowed_terms.insert(term_from_byte(b));
+            _allowed_terms.insert(byte_to_term(b));
         }
     }
 
+public:
+    InvertedIndex(const vector<RequiredRepeats>& required_repeats_list) : InvertedIndex() {
+        for (vector<RequiredRepeats>::const_iterator it = required_repeats_list.begin(); it != required_repeats_list.end(); ++it) {
+            const RequiredRepeats& rr = *it;
+            const map<Term, vector<offset_t>> offsets_map = get_doc_offsets_map(rr._doc_name, _allowed_terms, rr._num);
+            if (offsets_map.size() > 0) {
+                add_doc(rr, offsets_map);
+            }
+
+#if VERBOSITY >= 1
+            cout << " Added " << rr._doc_name << " to inverted index" << endl;
+#endif
+#if VERBOSITY >= 2
+            inverted_index->show(rr._doc_name);
+#endif
+        }
+
+        }
+
     /*
      * Add term offsets from a document to the inverted index
-     *  Trim `_postings_map` keys that are not in `s_offsets`
+     *  Trim `_postings_map` keys that are not in `term_offsets`
      */
-    void add_doc(const RequiredRepeats& required_repeats, Map<Term, vector<offset_t>>& s_offsets) {
+    void add_doc(const RequiredRepeats& required_repeats, const map<Term, vector<offset_t>>& term_offsets) {
         // Remove keys in _postings_map that are not keys of s_offsets
-        set<Term> common_keys = get_intersection(_allowed_terms, get_keys_set(s_offsets));
-        trim_keys(_postings_map, common_keys);
+        set<Term> common_terms = get_intersection(_allowed_terms, get_keys_set(term_offsets));
+        trim_keys(_postings_map, common_terms);
 
         int doc_index = (int)_docs_map.size();
         _docs_map[doc_index] = required_repeats;
 
-        for (set<Term>::const_iterator it = common_keys.begin(); it != common_keys.end(); ++it) {
+        for (set<Term>::const_iterator it = common_terms.begin(); it != common_terms.end(); ++it) {
             const Term& term = *it;
-            const vector<offset_t>& offsets = s_offsets[term];
-            _postings_map[term].add_offsets(doc_index, offsets);
+            _postings_map[term].add_offsets(doc_index, term_offsets.at(term));
         }
     }
 
     size_t size() const {
         size_t sz = 0;
-        for (Map<Term, Postings>::const_iterator it = _postings_map.begin(); it != _postings_map.end(); ++it) {
+        for (map<Term, Postings>::const_iterator it = _postings_map.begin(); it != _postings_map.end(); ++it) {
             sz += it->second.size();
         }
         return sz;
@@ -173,7 +272,7 @@ show_inverted_index(const string& title, const InvertedIndex *inverted_index) {
 static
 int
 get_doc_index(InvertedIndex *inverted_index, const string& doc_name) {
-    Map<int, RequiredRepeats>& docs_map = inverted_index->_docs_map;
+    map<int, RequiredRepeats>& docs_map = inverted_index->_docs_map;
     for (int i = 0; i < (int)docs_map.size(); i++) {
         string& doc = docs_map[(const int)i]._doc_name;
         if (doc == doc_name) {
@@ -198,83 +297,6 @@ check_sorted(const vector<offset_t>& offsets) {
 }
 #endif
 
-// Number of bytes to ignore at start of all files
-// !@#$% Should be a tunable param
-#define HEADER_SIZE 484
-//#define HEADER_SIZE 0
-
-/*
- * Read file named `path` into a Map of {bytes:(all offsets of byte in a document)
- *  and return the Map
- * Only read in offsets of bytes in allowed_bytes that occur >= min_reqreps
- *  times
- */
-static
-Map<Term, vector<offset_t>>
-get_doc_offsets_map(const string& path, set<Term>& allowed_terms, unsigned int min_reqreps) {
-
-    offset_t counts[ALPHABET_SIZE];
-    memset(&counts, 0, sizeof(counts));
-
-    size_t length = get_file_size(path);
-    byte *in_data = read_file(path);
-    byte *end = in_data + length;
-
-    byte *data = in_data + HEADER_SIZE;
-
-    // Pass through the document once to get counts of all bytes
-    for (byte *p = data; p < end; p++) {
-        counts[*p]++;
-    }
-
-    // valid_bytes are those with sufficient counts
-    set<Term> valid_bytes;
-    for (int b = 0; b < ALPHABET_SIZE; b++) {
-        if (counts[b] >= min_reqreps) {
-            valid_bytes.insert(term_from_byte(b));
-        }
-    }
-
-    // We use only the bytes that are valid for all documents so far/
-    allowed_terms = get_intersection(allowed_terms, valid_bytes);
-
-    // We have counts so we can pre-allocate data structures
-    Map<Term, vector<offset_t>> offsets_map;
-    bool allowed_bytes[ALPHABET_SIZE];
-    vector<offset_t>::iterator offsets_ptr[ALPHABET_SIZE];
-    for (int b = 0; b < ALPHABET_SIZE; b++) {
-        Term s = term_from_byte(b);
-        bool allowed = allowed_terms.find(s) != allowed_terms.end();
-        allowed_bytes[b] = allowed;
-        if (allowed) {
-            offsets_map[s] = vector<offset_t>(counts[b]);
-            offsets_ptr[b] = offsets_map[s].begin();
-        }
-    }
-
-    // Pass through the document a second time and read in the bytes
-    offset_t ofs = 0;
-    for (byte *p = data; p < end; p++) {
-        if (allowed_bytes[*p]) {
-            *(offsets_ptr[*p]) = ofs;
-            ofs++;
-            offsets_ptr[*p]++;
-        }
-    }
-
-    delete[] in_data;
-
-    // Report what was read to stdout
-#if VERBOSITY >= 2
-    cout << "get_doc_offsets_map(" << path << ") " << offsets_map.size() << " {";
-    for (Map<string, vector<offset_t>>::iterator it = offsets_map.begin(); it != offsets_map.end(); ++it) {
-        cout << it->first << ":" << it->second.size() << ", ";
-        //check_sorted(it->second);
-    }
-    cout << "}" << endl;
-#endif
-    return offsets_map;
-}
 
 /*
  * Create the InvertedIndex corresponding to `required_repeats`
@@ -282,24 +304,7 @@ get_doc_offsets_map(const string& path, set<Term>& allowed_terms, unsigned int m
 InvertedIndex *
 create_inverted_index(const vector<RequiredRepeats>& required_repeats_list) {
 
-    InvertedIndex *inverted_index = new InvertedIndex();
-
-    for (vector<RequiredRepeats>::const_iterator it = required_repeats_list.begin(); it != required_repeats_list.end(); ++it) {
-        const RequiredRepeats& rr = *it;
-        Map<Term, vector<offset_t>> offsets_map = get_doc_offsets_map(rr._doc_name, inverted_index->_allowed_terms, rr._num);
-        if (offsets_map.size() > 0) {
-            inverted_index->add_doc(rr, offsets_map);
-        }
-
-#if VERBOSITY >= 1
-        cout << " Added " << rr._doc_name << " to inverted index" << endl;
-#endif
-#if VERBOSITY >= 2
-        inverted_index->show(rr._doc_name);
-#endif
-    }
-
-    return inverted_index;
+    return new InvertedIndex(required_repeats_list);
 }
 
 void
@@ -489,7 +494,7 @@ get_non_overlapping_count(const vector<offset_t>& offsets, size_t m) {
 }
 
 /*
- * Return Posting for Term s + b if s + b is repeated a sufficient number of times in each document
+ * Return Postings for Term s + b if s + b is repeated a sufficient number of times in each document
  *  otherwise an empty Postings
  *  Caller must guarantee that s and b are in all RequiredRepeats (and therefore
  *  are repeated a sufficient number of times in each document)
@@ -504,19 +509,19 @@ get_non_overlapping_count(const vector<offset_t>& offsets, size_t m) {
 inline
 Postings
 get_sb_postings(InvertedIndex *inverted_index,
-                Map<Term, Postings>& term_postings_map,
+                const map<Term, Postings>& term_postings_map,
                 const Term& s, const Term& b) {
 
     unsigned int m = (unsigned int)s.size();
-    Postings& s_postings = term_postings_map[s];
-    Postings& b_postings = inverted_index->_postings_map[b];
+    const Postings& s_postings = term_postings_map.at(s);
+    const Postings& b_postings = inverted_index->_postings_map.at(b);
     Postings sb_postings;
 
-    Map<int, RequiredRepeats>& docs_map = inverted_index->_docs_map;
-    for (Map<int, RequiredRepeats>::iterator it = docs_map.begin(); it != docs_map.end(); ++it) {
+    map<int, RequiredRepeats>& docs_map = inverted_index->_docs_map;
+    for (map<int, RequiredRepeats>::const_iterator it = docs_map.begin(); it != docs_map.end(); ++it) {
         int doc_index = it->first;
-        vector<offset_t>& s_offsets = s_postings._offsets_map[doc_index];
-        vector<offset_t>& b_offsets = b_postings._offsets_map[doc_index];
+        const vector<offset_t>& s_offsets = s_postings._offsets_map.at(doc_index);
+        const vector<offset_t>& b_offsets = b_postings._offsets_map.at(doc_index);
 
         vector<offset_t> sb_offsets = get_sb_offsets(s_offsets, m, b_offsets);
 
@@ -539,7 +544,7 @@ get_sb_postings(InvertedIndex *inverted_index,
         //sb_offsets = get_non_overlapping_strings(sb_offsets, m+1);
 
         if (get_non_overlapping_count(sb_offsets, m + 1) < it->second._num) {
-            // Empty Map signals no match
+            // Empty map signals no match
             return Postings();
         }
 
@@ -555,9 +560,9 @@ get_sb_postings(InvertedIndex *inverted_index,
 #if 0
 
 inline bool
-is_exact_match(Map<int, RequiredRepeats>& docs_map,
-               const Map<int, offset_t>& doc_counts) {
-    for (Map<int, offset_t>::const_iterator it = doc_counts.begin(); it != doc_counts.end(); ++it) {
+is_exact_match(map<int, RequiredRepeats>& docs_map,
+               const map<int, offset_t>& doc_counts) {
+    for (map<int, offset_t>::const_iterator it = doc_counts.begin(); it != doc_counts.end(); ++it) {
         int key = it->first;
         const RequiredRepeats& rr = docs_map[key];
         if (rr._num != it->second) {
@@ -567,14 +572,14 @@ is_exact_match(Map<int, RequiredRepeats>& docs_map,
     return true;
 }
 
-Map<string, Map<int, offset_t>>
-get_valid_string_counts(const Map<string, Postings>& repeated_term_postings_map) {
-    Map<string, Map<int, offset_t>> string_counts;
-    for (Map<string, Postings>::const_iterator it = repeated_term_postings_map.begin(); it != repeated_term_postings_map.end(); ++it) {
+map<string, map<int, offset_t>>
+get_valid_string_counts(const map<string, Postings>& repeated_term_postings_map) {
+    map<string, map<int, offset_t>> string_counts;
+    for (map<string, Postings>::const_iterator it = repeated_term_postings_map.begin(); it != repeated_term_postings_map.end(); ++it) {
         const string& s = it->first;
-        const Map<int, vector<offset_t>>& offsets_map = it->second._offsets_map;
-        Map<int, offset_t> doc_counts;
-        for (Map<int, vector<offset_t>>::const_iterator jt = offsets_map.begin(); jt != offsets_map.end(); jt++) {
+        const map<int, vector<offset_t>>& offsets_map = it->second._offsets_map;
+        map<int, offset_t> doc_counts;
+        for (map<int, vector<offset_t>>::const_iterator jt = offsets_map.begin(); jt != offsets_map.end(); jt++) {
             doc_counts[jt->first] = jt->second.size();
         }
         string_counts[s] = doc_counts;
@@ -584,10 +589,10 @@ get_valid_string_counts(const Map<string, Postings>& repeated_term_postings_map)
 
 inline
 vector<string>
-get_exact_matches(Map<int, RequiredRepeats>& docs_map,
-                  const Map<string, Map<int, offset_t>>& string_counts) {
+get_exact_matches(map<int, RequiredRepeats>& docs_map,
+                  const map<string, map<int, offset_t>>& string_counts) {
     vector<string> exact_matches;
-    for (Map<string, Map<int, offset_t>>::const_iterator it = string_counts.begin(); it != string_counts.end(); ++it) {
+    for (map<string, map<int, offset_t>>::const_iterator it = string_counts.begin(); it != string_counts.end(); ++it) {
         if (is_exact_match(docs_map, it->second)) {
             exact_matches.push_back(it->first);
         }
@@ -600,10 +605,10 @@ get_exact_matches(Map<int, RequiredRepeats>& docs_map,
  *  to find the longest with == RequiredRepeats
  */
 vector<string>
-get_longest_exact_matches(Map<int, RequiredRepeats>& docs_map,
-                          const vector<Map<string, Map<int, offset_t>>>& valid_string_counts) {
-    for (vector<Map<string, Map<int, offset_t>>>::const_reverse_iterator it = valid_string_counts.rbegin(); it != valid_string_counts.rend(); ++it) {
-        const Map<string, Map<int, offset_t>>& string_counts = *it;
+get_longest_exact_matches(map<int, RequiredRepeats>& docs_map,
+                          const vector<map<string, map<int, offset_t>>>& valid_string_counts) {
+    for (vector<map<string, map<int, offset_t>>>::const_reverse_iterator it = valid_string_counts.rbegin(); it != valid_string_counts.rend(); ++it) {
+        const map<string, map<int, offset_t>>& string_counts = *it;
         vector<string> exact_matches = get_exact_matches(docs_map, string_counts);
 
         if (exact_matches.size() > 0) {
@@ -680,17 +685,17 @@ is_allowed_for_printer(const Term& str) {
 
 static inline
 vector<Term>
-get_exact_matches(Map<int, RequiredRepeats>& docs_map,
-                  const Map<Term, Postings>& repeated_term_postings_map) {
+get_exact_matches(const map<int, RequiredRepeats>& docs_map,
+                  const map<Term, Postings>& repeated_term_postings_map) {
     vector<Term> exact_matches;
 
-     for (Map<Term, Postings>::const_iterator it = repeated_term_postings_map.begin(); it != repeated_term_postings_map.end(); ++it) {
+     for (map<Term, Postings>::const_iterator it = repeated_term_postings_map.begin(); it != repeated_term_postings_map.end(); ++it) {
         const Term& s = it->first;
-        const Map<int, vector<offset_t>>& offsets_map = it->second._offsets_map;
+        const map<int, vector<offset_t>>& offsets_map = it->second._offsets_map;
         bool is_match = true;
-        for (Map<int, vector<offset_t>>::const_iterator jt = offsets_map.begin(); jt != offsets_map.end(); ++jt) {
+        for (map<int, vector<offset_t>>::const_iterator jt = offsets_map.begin(); jt != offsets_map.end(); ++jt) {
             int d = jt->first;
-            const RequiredRepeats& rr = docs_map[d];
+            const RequiredRepeats& rr = docs_map.at(d);
             // !@#$ Strictly, non-overlapping count, not size()
             offset_t count = (offset_t)jt->second.size();
             if (rr._num != count) {
@@ -730,10 +735,10 @@ RepeatsResults
 get_all_repeats(InvertedIndex *inverted_index, size_t max_substring_len) {
 
     // Postings Map of terms of length 1
-    Map<Term, Postings>& repeated_bytes_map = inverted_index->_postings_map;
+    map<Term, Postings>& repeated_bytes_map = inverted_index->_postings_map;
 
     // Postings Map of terms of length m + 1 constructed from from terms of length m
-    Map<Term, Postings> repeated_term_postings_map = copy_map(repeated_bytes_map);
+    map<Term, Postings> repeated_term_postings_map = copy_map(repeated_bytes_map);
 
 #if VERBOSITY >= 1
     cout << "get_all_repeats: repeated_bytes=" << repeated_bytes_map.size()
@@ -811,13 +816,13 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_substring_len) {
          * and filter out length n + 1 term that don't end with an existing length n term
          * extension_bytes[s][b] is later converted to s + b: s is length n, b is length 1
          */
-        Map<Term, vector<Term>> valid_s_b;
-        for (vector<Term>::iterator is = repeated_terms.begin(); is != repeated_terms.end(); ++is) {
-            Term& s = *is;
+        map<Term, vector<Term>> valid_s_b;
+        for (vector<Term>::const_iterator is = repeated_terms.begin(); is != repeated_terms.end(); ++is) {
+            const Term& s = *is;
             vector<Term> extension_bytes;
-            for (vector<Term>::iterator ib = repeated_bytes.begin(); ib != repeated_bytes.end(); ++ib) {
-                Term& b = *ib;
-                if (binary_search(repeated_terms.begin(), repeated_terms.end(), sub_term(concat(s, b), 1))) {
+            for (vector<Term>::const_iterator ib = repeated_bytes.begin(); ib != repeated_bytes.end(); ++ib) {
+                const Term& b = *ib;
+                if (binary_search(repeated_terms.begin(), repeated_terms.end(), slice(concat(s, b), 1))) {
                     extension_bytes.push_back(b);
                 }
             }
@@ -837,7 +842,7 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_substring_len) {
 #endif
         // Remove from `repeated_term_postings_map` the offsets of all length n strings that won't be
         // used to construct length n + 1 strings below
-        for (vector<Term>::iterator is = repeated_terms.begin(); is != repeated_terms.end(); ++is) {
+        for (vector<Term>::const_iterator is = repeated_terms.begin(); is != repeated_terms.end(); ++is) {
             if (valid_s_b.find(*is) == valid_s_b.end()) {
                 repeated_term_postings_map.erase(*is);
             }
@@ -846,12 +851,12 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_substring_len) {
         // Replace repeated_term_postings_map[s] with repeated_term_postings_map[s + b] for all b in bytes that
         // have survived the valid_s_b filtering above
         // This cannot increase total number of offsets as each s + b starts with s
-        for (Map<Term, vector<Term>>::iterator iv = valid_s_b.begin(); iv != valid_s_b.end(); ++iv) {
+        for (map<Term, vector<Term>>::const_iterator iv = valid_s_b.begin(); iv != valid_s_b.end(); ++iv) {
 
-            Term s = iv->first;
-            vector<Term> bytes = iv->second;
-            for (vector<Term>::iterator ib = bytes.begin(); ib != bytes.end(); ++ib) {
-                Term b = *ib;
+            const Term s = iv->first;
+            const vector<Term> bytes = iv->second;
+            for (vector<Term>::const_iterator ib = bytes.begin(); ib != bytes.end(); ++ib) {
+                const Term b = *ib;
                 Postings postings = get_sb_postings(inverted_index, repeated_term_postings_map, s, b);
                 if (!postings.empty()) {
                     // !@#$%

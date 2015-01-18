@@ -208,7 +208,7 @@ get_required_repeats(const vector<string>& path_list) {
 
     sort(required_repeats.begin(), required_repeats.end(), comp_reqrep);
 #if VERBOSITY >= 1
-    for (vector<RequiredRepeats>::iterator it = required_repeats.begin(); it < required_repeats.end(); ++it) {
+    for (vector<RequiredRepeats>::const_iterator it = required_repeats.begin(); it < required_repeats.end(); ++it) {
         cout << it - required_repeats.begin() << ": " << it->_doc_name << ", " << it->_num << ", " << it->_size << endl;
     }
 #endif

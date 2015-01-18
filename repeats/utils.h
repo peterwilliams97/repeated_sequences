@@ -6,6 +6,7 @@
 #include <list>
 #include <set>
 #include <vector>
+#include <map>
 #include <algorithm>
 #include <functional>
 #include <cmath>
@@ -47,7 +48,7 @@ from_string(const std::string& s, typename T& x) {
  */
 template <class K, class V>
 std::list<K>
-get_keys_list(const std::Map<K, V>& mp) {
+get_keys_list(const std::map<K, V>& mp) {
     std::list<K> keys;
     for (std::map<K, V>::const_iterator it = mp.begin(); it != mp.end(); ++it) {
         keys.push_back(it->first);
@@ -60,10 +61,10 @@ get_keys_list(const std::Map<K, V>& mp) {
  */
 template <class K, class V>
 std::vector<K>
-get_keys_vector(const std::Map<K, V> &mp) {
+get_keys_vector(const std::map<K, V> &mp) {
     std::vector<K> keys;
     keys.reserve(mp.size());
-    for (std::Map<K, V>::const_iterator it = mp.begin(); it != mp.end(); ++it) {
+    for (std::map<K, V>::const_iterator it = mp.begin(); it != mp.end(); ++it) {
         keys.push_back(it->first);
     }
 #if 0
@@ -85,7 +86,7 @@ get_keys_vector(const std::Map<K, V> &mp) {
  */
 template <class K, class V>
 std::set<K>
-get_keys_set(const std::Map<K, V>& mp) {
+get_keys_set(const std::map<K, V>& mp) {
     std::vector<K> keys = get_keys_vector(mp);
     return std::set<K>(keys.begin(), keys.end());
 }
@@ -94,10 +95,10 @@ get_keys_set(const std::Map<K, V>& mp) {
  * Return a copy of map mp
  */
 template <class K, class V>
-std::Map<K, V>
-copy_map(const std::Map<K, V>& mp) {
-    std::Map<K, V> result;
-    for (std::Map<K, V>::const_iterator it = mp.begin(); it != mp.end(); ++it) {
+std::map<K, V>
+copy_map(const std::map<K, V>& mp) {
+    std::map<K, V> result;
+    for (std::map<K, V>::const_iterator it = mp.begin(); it != mp.end(); ++it) {
         K key = it->first;
         V val = it->second;
         result[key] = val;
@@ -150,9 +151,9 @@ print_set(const std::string& name, const std::set<T>& lst) {
 
 template <class K, class V>
 size_t
-get_map_vector_size(const std::Map<K, std::vector<V>>& mp) {
+get_map_vector_size(const std::map<K, std::vector<V>>& mp) {
     size_t size = 0;
-    for (std::Map<K, std::vector<V>>::const_iterator it = mp.begin(); it != mp.end(); ++it) {
+    for (std::map<K, std::vector<V>>::const_iterator it = mp.begin(); it != mp.end(); ++it) {
         size += it->second.size();
     }
     return size;
@@ -231,7 +232,7 @@ get_gteq2(typename std::vector<T>::const_iterator begin2,
  *  v1.size() * log(v2.size())
  */
 template <class T>
-typename std::set<T>
+typename const std::set<T>
 get_intersection(typename const std::set<T>& v1,
                  typename const std::set<T>& v2) {
     std::set<T> v;
@@ -244,11 +245,11 @@ get_intersection(typename const std::set<T>& v1,
 }
 
 /*
- * Trim mp to contain only the keys in keys
+ * Trim map `mp` to contain only the keys in `keys`
  */
 template <class K, class V>
 void
-trim_keys(std::Map<K, V> &mp, const std::set<K> &keys) {
+trim_keys(std::map<K, V>& mp, const std::set<K>& keys) {
     std::vector<K> map_keys = get_keys_vector(mp);
     for (std::vector<K>::iterator it = map_keys.begin(); it < map_keys.end(); ++it) {
         if (keys.find(*it) == keys.end()) {

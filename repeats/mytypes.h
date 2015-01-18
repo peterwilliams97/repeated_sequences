@@ -3,10 +3,10 @@
 
 #include <string>
 #include <vector>
-#if 1
+#if 0
 #include <map>
 #define Map map
-#else
+#elif 0
 #include <unordered_map>
 #define Map unordered_map
 #endif
@@ -32,7 +32,7 @@ typedef std::string Term;
 
 inline
 Term
-term_from_byte(byte b) {
+byte_to_term(byte b) {
     return std::string(1, (byte)b);
 }
 
@@ -50,7 +50,7 @@ concat(const Term& a, const Term& b) {
 
 inline
 Term
-sub_term(const Term& term, int start) {
+slice(const Term& term, int start) {
     return Term(term.begin() + start, term.end());
 }
 
@@ -60,7 +60,7 @@ typedef std::vector<int> Term;
 
 inline
 Term
-term_from_byte(byte b) {
+byte_to_term(byte b) {
     std::vector<int> term;
     term.push_back(b);
     return term;
@@ -82,7 +82,7 @@ concat(const Term& a, const Term& b) {
 
 inline
 Term
-sub_term(const Term& term, int start) {
+slice(const Term& term, int start) {
     return Term(term.begin() + start, term.end());
 }
 
