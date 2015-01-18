@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include "utils.h"
 
 /*
  * Use an inverted index to find the longest substring(s) that is repeated
@@ -35,13 +36,13 @@ struct InvertedIndex;
 
 struct RepeatsResults {
     bool _converged;
-    std::vector<std::string> _longest;
-    std::vector<std::string> _exact;
+    std::vector<Term> _longest;
+    std::vector<Term> _exact;
 };
 
 // Create an inverted index from a list of files in filename that have
 // their number of repeats encoded like "repeats=5.txt"
-InvertedIndex *create_inverted_index(const std::vector<std::string>& filenames);
+InvertedIndex *create_inverted_index(const std::vector<RequiredRepeats>& required_repeats_list);
 
 // Free up all the resources in the InvertedIndex
 void delete_inverted_index(InvertedIndex *inverted_index);

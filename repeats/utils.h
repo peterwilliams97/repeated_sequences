@@ -4,7 +4,6 @@
 #include <string>
 #include <sstream>
 #include <list>
-#include <map>
 #include <set>
 #include <vector>
 #include <algorithm>
@@ -14,7 +13,7 @@
 
 #include "mytypes.h"
 
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
+//#define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define NUMELEMS(a) (sizeof(a) / sizeof(a[0]))
 
 /*
@@ -22,7 +21,7 @@
  */
 template <class T>
 void
-_D(const std::string &s, typename T x) {
+_D(const std::string& s, typename T x) {
     //std::cout << "dbg:" << s << "='" << x << "'" << std::endl;
 }
 
@@ -37,7 +36,7 @@ _D(const std::string &s) {
  */
 template <class T>
 typename T
-from_string(const std::string &s, typename T &x) {
+from_string(const std::string& s, typename T& x) {
     stringstream str(s);
     str >> x;
     return x;
@@ -48,9 +47,9 @@ from_string(const std::string &s, typename T &x) {
  */
 template <class K, class V>
 std::list<K>
-get_keys_list(const std::map<K, V> &mp) {
+get_keys_list(const std::Map<K, V>& mp) {
     std::list<K> keys;
-    for (std::map<K,V>::const_iterator it = mp.begin(); it != mp.end(); it++) {
+    for (std::map<K, V>::const_iterator it = mp.begin(); it != mp.end(); ++it) {
         keys.push_back(it->first);
     }
     return keys;
@@ -61,17 +60,17 @@ get_keys_list(const std::map<K, V> &mp) {
  */
 template <class K, class V>
 std::vector<K>
-get_keys_vector(const std::map<K, V> &mp) {
+get_keys_vector(const std::Map<K, V> &mp) {
     std::vector<K> keys;
     keys.reserve(mp.size());
-    for (std::map<K,V>::const_iterator it = mp.begin(); it != mp.end(); it++) {
+    for (std::Map<K, V>::const_iterator it = mp.begin(); it != mp.end(); ++it) {
         keys.push_back(it->first);
     }
 #if 0
     int count = 0;
     K val;
     K total = K();
-    for (std::vector<K>::const_iterator it = keys.begin(); it != keys.end(); it++) {
+    for (std::vector<K>::const_iterator it = keys.begin(); it != keys.end(); ++it) {
         count++;
         val = *it;
         total += val;
@@ -86,7 +85,7 @@ get_keys_vector(const std::map<K, V> &mp) {
  */
 template <class K, class V>
 std::set<K>
-get_keys_set(const std::map<K, V> &mp) {
+get_keys_set(const std::Map<K, V>& mp) {
     std::vector<K> keys = get_keys_vector(mp);
     return std::set<K>(keys.begin(), keys.end());
 }
@@ -95,10 +94,10 @@ get_keys_set(const std::map<K, V> &mp) {
  * Return a copy of map mp
  */
 template <class K, class V>
-std::map<K,V>
-copy_map(const std::map<K,V> &mp) {
-    map<K,V> result;
-    for (std::map<K,V>::const_iterator it = mp.begin(); it != mp.end(); it++) {
+std::Map<K, V>
+copy_map(const std::Map<K, V>& mp) {
+    std::Map<K, V> result;
+    for (std::Map<K, V>::const_iterator it = mp.begin(); it != mp.end(); ++it) {
         K key = it->first;
         V val = it->second;
         result[key] = val;
@@ -151,9 +150,9 @@ print_set(const std::string& name, const std::set<T>& lst) {
 
 template <class K, class V>
 size_t
-get_map_vector_size(const std::map<K,std::vector<V>> &mp) {
+get_map_vector_size(const std::Map<K, std::vector<V>>& mp) {
     size_t size = 0;
-    for (std::map<K,std::vector<V>>::const_iterator it = mp.begin(); it != mp.end(); it++) {
+    for (std::Map<K, std::vector<V>>::const_iterator it = mp.begin(); it != mp.end(); ++it) {
         size += it->second.size();
     }
     return size;
@@ -204,7 +203,7 @@ get_gteq2(typename std::vector<T>::const_iterator begin2,
     }
 
     // As far as we can go in full steps of step_size
-    std::vector<T>::const_iterator end1 = begin2 + ((end2-begin2)/step_size)*step_size;
+    std::vector<T>::const_iterator end1 = begin2 + ((end2 - begin2) / step_size) * step_size;
 
     // Step through range in steps of step_size
     for (std::vector<T>::const_iterator begin = begin2; begin < end1; begin += step_size) {
@@ -233,10 +232,10 @@ get_gteq2(typename std::vector<T>::const_iterator begin2,
  */
 template <class T>
 typename std::set<T>
-get_intersection(typename const std::set<T> &v1,
-                 typename const std::set<T> &v2) {
+get_intersection(typename const std::set<T>& v1,
+                 typename const std::set<T>& v2) {
     std::set<T> v;
-    for (std::set<T>::const_iterator it = v1.begin(); it != v1.end(); it++) {
+    for (std::set<T>::const_iterator it = v1.begin(); it != v1.end(); ++it) {
         if (v2.find(*it) != v2.end()) {
             v.insert(*it);
         }
@@ -249,9 +248,9 @@ get_intersection(typename const std::set<T> &v1,
  */
 template <class K, class V>
 void
-trim_keys(std::map<K,V> &mp, const std::set<K> &keys) {
+trim_keys(std::Map<K, V> &mp, const std::set<K> &keys) {
     std::vector<K> map_keys = get_keys_vector(mp);
-    for (std::vector<K>::iterator it = map_keys.begin(); it < map_keys.end(); it++) {
+    for (std::vector<K>::iterator it = map_keys.begin(); it < map_keys.end(); ++it) {
         if (keys.find(*it) == keys.end()) {
             mp.erase(*it);
         }
@@ -275,7 +274,7 @@ next_power2(double x) {
 // trim from start
 inline
 std::string&
-ltrim(std::string &s) {
+ltrim(std::string& s) {
     s.erase(s.begin(), std::find_if(s.begin(), s.end(), std::not1(std::ptr_fun<int, int>(std::isspace))));
     return s;
 }
@@ -283,7 +282,7 @@ ltrim(std::string &s) {
 // trim from end
 inline
 std::string&
-rtrim(std::string &s) {
+rtrim(std::string& s) {
     s.erase(std::find_if(s.rbegin(), s.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
     return s;
 }
@@ -291,14 +290,40 @@ rtrim(std::string &s) {
 // trim from both ends
 inline
 std::string&
-trim(std::string &s) {
+trim(std::string& s) {
     return ltrim(rtrim(s));
 }
 
 // Functions in utils.cpp
-int string_to_int(const std::string s);
-size_t get_file_size(const std::string filename);
-byte *read_file(const std::string filename);
-void show_bytes(const std::string str);
+int string_to_int(const std::string& s);
+size_t get_file_size(const std::string& path);
+byte *read_file(const std::string& path);
+void show_bytes(const Term& term);
+
+std::vector<std::string> read_path_list(const std::string& path_list_path);
+
+/*
+ * A RequiredRepeats
+ *  - describes a document and
+ *  - specifies the number of times a term (substring) must occur in the document
+ */
+struct RequiredRepeats {
+    std::string _doc_name;      // Document name
+    size_t _size;               // Size of document in bytes
+
+    unsigned int _num;          // Number of times term in is repeated in document
+
+    // Average size of each repeat
+    // This is an indicator of how much time it will take to search for a repeat
+    // in a document, all other things being equal.
+    double repeat_size() const { return (double)_size / (double)_num; }
+
+    RequiredRepeats() : _doc_name(""), _num(0), _size(0) {}
+
+    RequiredRepeats(const std::string doc_name, unsigned int num, size_t size) :
+        _doc_name(doc_name), _num(num), _size(size) {}
+};
+
+std::vector<RequiredRepeats> get_required_repeats(const std::vector<std::string>& path_list);
 
 #endif // #define UTILS_H

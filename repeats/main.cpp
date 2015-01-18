@@ -8,63 +8,21 @@
 
 using namespace std;
 
-struct CodeComment {
-    string _code;
-    string _comment;
-};
-
-CodeComment
-get_code_comment(const string &line) {
-    stringstream ss(line);
-    string item;
-    CodeComment code_comment;
-    if (getline(ss, item, '#')) {
-        code_comment._code = trim(item);
-    }
-    if (getline(ss, item)) {
-        code_comment._comment = trim(item);
-    }
-    return code_comment;
-}
-
-static vector<string>
-get_filenames(const string &filelist) {
-    ifstream f(filelist);
-    if (!f.is_open()) {
-        cerr << "Unable to open '" << filelist << "'" << endl;
-        return vector<string>();
-    }
-
-    vector<string> filenames;
-    while (f.good()) {
-        string line;
-        getline(f, line);
-        CodeComment code_comment = get_code_comment(line);
-        if (code_comment._code.size()) {
-            filenames.push_back(code_comment._code);
-        }
-        if (code_comment._comment.size()) {
-            cout << "# " << code_comment._comment << endl;
-        }
-    }
-    f.close();
-
-    return filenames;
-}
-
-static double
-test_inverted_index(const vector<string> &filenames) {
+static
+double
+test_inverted_index(const vector<string>& path_list) {
 
     reset_elapsed_time();
 
-    InvertedIndex *inverted_index = create_inverted_index(filenames);
+    vector<RequiredRepeats> required_repeats_list = get_required_repeats(path_list);
+    InvertedIndex *inverted_index = create_inverted_index(required_repeats_list);
     show_inverted_index("initial", inverted_index);
 
     RepeatsResults repeats_results = get_all_repeats(inverted_index);
 
     bool converged = repeats_results._converged;
-    vector<string> exacts = repeats_results._exact;
-    vector<string> repeats = repeats_results._longest;
+    vector<Term> exacts = repeats_results._exact;
+    vector<Term> repeats = repeats_results._longest;
 
     cout << "--------------------------------------------------------------------------" << endl;
     cout << "converged = " << converged << ", repeats = " << repeats.size() << ", exacts = " << exacts.size() << endl;
@@ -75,7 +33,7 @@ test_inverted_index(const vector<string> &filenames) {
             cout << " of length " << repeats.front().size();
         }
         cout << endl;
-        print_vector("Repeated strings", repeats);
+        print_term_vector("Repeated strings", repeats);
         for (int i = 0; i < (int)repeats.size(); i++) {
             cout << i << " : ";
             show_bytes(repeats[i]);
@@ -90,7 +48,7 @@ test_inverted_index(const vector<string> &filenames) {
             cout << " of length " << dec << exacts.front().size();
         }
         cout << endl;
-        print_vector("Exactly repeated strings", exacts);
+        print_term_vector("Exactly repeated strings", exacts);
         for (int i = 0; i < (int)exacts.size(); i++) {
             cout << i << " : ";
             show_bytes(exacts[i]);
@@ -106,29 +64,29 @@ test_inverted_index(const vector<string> &filenames) {
 }
 
 void
-show_stats(const vector<double> &d) {
+show_stats(const vector<double>& d) {
 
     double min_d = numeric_limits<double>::max();
     double max_d = numeric_limits<double>::min();
     double total = 0.0;
-    for (vector<double>::const_iterator it = d.begin(); it != d.end(); it++) {
+    for (vector<double>::const_iterator it = d.begin(); it != d.end(); ++it) {
         min_d = min(min_d, *it);
         max_d = max(max_d, *it);
         total += *it;
     }
     size_t n = d.size();
-    double ave = total/(double)n;
-    double med = d[n/2];
+    double ave = total / (double)n;
+    double med = d[n / 2];
     cout << "min="<< min_d << ", max="<< max_d << ", ave=" << ave << ", med=" << med << endl;
 }
 
 void
-multi_test(const string &filelist, int n) {
-    vector<string> filenames = get_filenames(filelist);
+multi_test(const string& path_list_path, int n) {
+    vector<string> path_list = read_path_list(path_list_path);
     vector<double> durations;
     for (int i = 0; i < n; i++) {
         cout << "========================== test " << i << " of " << n << " ==============================" << endl;
-        durations.push_back(test_inverted_index(filenames));
+        durations.push_back(test_inverted_index(path_list));
         show_stats(durations);
     }
 }
@@ -136,17 +94,17 @@ multi_test(const string &filelist, int n) {
 int
 main(int argc, char *argv[]) {
     if (argc < 2) {
-        cerr << "Usage: " << argv[0] << " filelist" << endl;
+        cerr << "Usage: " << argv[0] << " path_list_path" << endl;
         return 1;
     }
 
-    string filelist(argv[1]);
-    vector<string> filenames = get_filenames(filelist);
-    if (filenames.size() == 0) {
-        cerr << "No filenames in " << filelist << endl;
+    string path_list_path(argv[1]);
+    vector<string> path_list = read_path_list(path_list_path);
+    if (path_list.size() == 0) {
+        cerr << "No path_list in " << path_list_path << endl;
         return 1;
     }
 
-    test_inverted_index(filenames);
+    test_inverted_index(path_list);
     return 0;
 }
