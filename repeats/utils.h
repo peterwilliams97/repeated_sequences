@@ -175,7 +175,7 @@ get_gteq(typename std::vector<T>::const_iterator begin,
     }
 
     begin++;
-    if (begin == end)  {
+    if (begin == end) {
         return end;
     }
 
@@ -199,7 +199,7 @@ get_gteq2(typename std::vector<T>::const_iterator begin2,
     }
 
     begin2++;
-    if (begin2 == end2)  {
+    if (begin2 == end2) {
         return end2;
     }
 

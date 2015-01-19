@@ -342,7 +342,6 @@ get_sb_offsets(const vector<offset_t>& s_offsets, offset_t m, const vector<offse
     vector<offset_t>::const_iterator is = s_offsets.begin();
     vector<offset_t>::const_iterator ib = b_offsets.begin();
 
-
 #if INNER_LOOP == 1
     vector<offset_t>::const_iterator b_end = bytes.end();
     vector<offset_t>::const_iterator s_end = strings.end();
@@ -408,17 +407,17 @@ get_sb_offsets(const vector<offset_t>& s_offsets, offset_t m, const vector<offse
 
     if (ratio < 8.0) {
         while (ib < b_end && is < s_end) {
-            offset_t is_m = *is + m;
-            if (*ib == is_m) {
+            offset_t s_m = *is + m;  // offset of end of s
+            if (*ib == s_m) {
                 sb_offsets.push_back(*is);
                 ++is;
-            } else if (*ib < is_m) {
-                while (ib < b_end && *ib < is_m) {
+            } else if (*ib < s_m) {
+                while (ib < b_end && *ib < s_m) {
                     ++ib;
                 }
             } else {
-                offset_t ib_m = *ib - m;
-                while (is < s_end && *is < ib_m) {
+                offset_t b_m = *ib - m;
+                while (is < s_end && *is < b_m) {
                     ++is;
                 }
             }
@@ -426,15 +425,15 @@ get_sb_offsets(const vector<offset_t>& s_offsets, offset_t m, const vector<offse
     } else {
         size_t step_size_b = next_power2(ratio);
         while (ib < b_end && is < s_end) {
-            offset_t is_m = *is + m;
-            if (*ib == is_m) {
+            offset_t s_m = *is + m;
+            if (*ib == s_m) {
                 sb_offsets.push_back(*is);
                 ++is;
-            } else if (*ib < is_m) {
-                 ib = get_gteq2(ib, b_end, *is + m, step_size_b);
+            } else if (*ib < s_m) {
+                 ib = get_gteq2(ib, b_end, s_m, step_size_b);
             } else {
-                offset_t ib_m =  *ib - m;
-                while (is < s_end && *is < ib_m) {
+                offset_t b_m =  *ib - m;
+                while (is < s_end && *is < b_m) {
                     ++is;
                 }
             }
