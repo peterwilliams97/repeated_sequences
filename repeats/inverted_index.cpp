@@ -804,7 +804,7 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_substring_len) {
              << ", len= " << m
              << ", time= " << get_elapsed_time() << endl;
         for (int i = 0; i < min(3, (int)repeated_terms.size()); i++) {
-            Term& s = repeated_terms[i];
+            const Term& s = repeated_terms[i];
             print_vector(term_to_string(s), term_m_postings_map[s].counts_per_doc());
         }
 #endif
