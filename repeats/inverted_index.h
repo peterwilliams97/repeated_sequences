@@ -42,7 +42,7 @@ struct RepeatsResults {
 
 // Create an inverted index from a list of files in filename that have
 // their number of repeats encoded like "repeats=5.txt"
-InvertedIndex *create_inverted_index(const std::vector<RequiredRepeats>& required_repeats_list);
+InvertedIndex *create_inverted_index(const std::vector<RequiredRepeats>& required_repeats_list, int n_bad_allowed);
 
 // Free up all the resources in the InvertedIndex
 void delete_inverted_index(InvertedIndex *inverted_index);

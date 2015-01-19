@@ -10,12 +10,12 @@ using namespace std;
 
 static
 double
-test_inverted_index(const vector<string>& path_list) {
+test_inverted_index(const vector<string>& path_list, int n_bad_allowed) {
 
     reset_elapsed_time();
 
     vector<RequiredRepeats> required_repeats_list = get_required_repeats(path_list);
-    InvertedIndex *inverted_index = create_inverted_index(required_repeats_list);
+    InvertedIndex *inverted_index = create_inverted_index(required_repeats_list, n_bad_allowed);
     show_inverted_index("initial", inverted_index);
 
     RepeatsResults repeats_results = get_all_repeats(inverted_index);
@@ -81,12 +81,12 @@ show_stats(const vector<double>& d) {
 }
 
 void
-multi_test(const string& path_list_path, int n) {
+multi_test(const string& path_list_path, int n, int n_bad_allowed) {
     vector<string> path_list = read_path_list(path_list_path);
     vector<double> durations;
     for (int i = 0; i < n; i++) {
         cout << "========================== test " << i << " of " << n << " ==============================" << endl;
-        durations.push_back(test_inverted_index(path_list));
+        durations.push_back(test_inverted_index(path_list, n_bad_allowed));
         show_stats(durations);
     }
 }
@@ -105,6 +105,6 @@ main(int argc, char *argv[]) {
         return 1;
     }
 
-    test_inverted_index(path_list);
+    test_inverted_index(path_list, 1);
     return 0;
 }
