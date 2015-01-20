@@ -186,20 +186,20 @@ struct InvertedIndex {
 
     // `_postings_map[term]` is the Postings of Term `term`
     // !@#$ Separate byte Postings map
-    map<Term, Postings> _postings_map;
+    map<Term, Postings> _byte_postings_map;
 
     // `_docs_map[i]` = path + min required repeats of document index i.
     //  The Postings in `_postings_map` index into this map
     map<int, RequiredRepeats> _docs_map;
 
     // `_allowed_terms` is all valid terms
-    set<Term> _allowed_terms;
+    set<Term> _allowed_bytes;
 
 private:
     InvertedIndex() : _n_bad_allowed(0) {
         // Start `_allowed_terms` as all single bytes
         for (int b = 0; b < ALPHABET_SIZE; b++) {
-            _allowed_terms.insert(byte_to_term(b));
+            _allowed_bytes.insert(byte_to_term(b));
         }
     }
 
@@ -209,7 +209,7 @@ public:
         _n_bad_allowed = n_bad_allowed;
         for (vector<RequiredRepeats>::const_iterator it = required_repeats_list.begin(); it != required_repeats_list.end(); ++it) {
             const RequiredRepeats& rr = *it;
-            const map<Term, vector<offset_t>> offsets_map = get_doc_offsets_map(rr._doc_name, _allowed_terms, rr._num);
+            const map<Term, vector<offset_t>> offsets_map = get_doc_offsets_map(rr._doc_name, _allowed_bytes, rr._num);
             if (offsets_map.size() > 0) {
                 add_doc(rr, offsets_map);
             }
@@ -230,18 +230,21 @@ public:
      */
     void add_doc(const RequiredRepeats& required_repeats, const map<Term, vector<offset_t>>& term_offsets) {
         // Remove keys in _postings_map that are not keys of s_offsets
-        set<Term> common_terms = get_intersection(_allowed_terms, get_keys_set(term_offsets));
-        trim_keys(_postings_map, common_terms);
+        set<Term> common_terms = get_intersection(_allowed_bytes, get_keys_set(term_offsets));
+        trim_keys(_byte_postings_map, common_terms);
 
         int doc_index = (int)_docs_map.size();
         _docs_map[doc_index] = required_repeats;
 
         for (set<Term>::const_iterator it = common_terms.begin(); it != common_terms.end(); ++it) {
             const Term& term = *it;
-            _postings_map[term].add_offsets(doc_index, term_offsets.at(term));
+            _byte_postings_map[term].add_offsets(doc_index, term_offsets.at(term));
         }
+
+        _allowed_bytes = get_intersection(_allowed_bytes, get_keys_set(_byte_postings_map));
     }
 
+#if 0
     size_t size() const {
         size_t sz = 0;
         for (map<Term, Postings>::const_iterator it = _postings_map.begin(); it != _postings_map.end(); ++it) {
@@ -249,6 +252,7 @@ public:
         }
         return sz;
     }
+#endif
 
     void show(const string& title) const {
 #if VERBOSITY >= 2
@@ -406,25 +410,37 @@ get_sb_offsets(const vector<offset_t>& s_offsets, offset_t m, const vector<offse
     double ratio = (double)b_offsets.size() / (double)s_offsets.size();
 
     if (ratio < 8.0) {
-        while (ib < b_end && is < s_end) {
+        /*
+         * Walk through s_offsets and b_offsets keeping them aligned as follows
+         *  b offset == end of s offset => save s offset as it is an s + b offset
+         *  b offset < end of s offset  => advance b offset
+         *  b offset > end of s offset  => advance s offset
+         */
+        while (ib != b_end && is != s_end) {
             offset_t s_m = *is + m;  // offset of end of s
             if (*ib == s_m) {
                 sb_offsets.push_back(*is);
                 ++is;
             } else if (*ib < s_m) {
-                while (ib < b_end && *ib < s_m) {
+                while (ib != b_end && *ib < s_m) {
                     ++ib;
                 }
             } else {
                 offset_t b_m = *ib - m;
-                while (is < s_end && *is < b_m) {
+                while (is != s_end && *is < b_m) {
                     ++is;
                 }
             }
         }
     } else {
+        /*
+         * Walk through s_offsets and b_offsets keeping them aligned as follows
+         *  b offset == end of s offset => save s offset as it is an s + b offset
+         *  b offset < end of s offset  => advance b offset binary searching regions of step_size_b
+         *  b offset > end of s offset  => advance s offset
+         */
         size_t step_size_b = next_power2(ratio);
-        while (ib < b_end && is < s_end) {
+        while (ib != b_end && is != s_end) {
             offset_t s_m = *is + m;
             if (*ib == s_m) {
                 sb_offsets.push_back(*is);
@@ -433,7 +449,7 @@ get_sb_offsets(const vector<offset_t>& s_offsets, offset_t m, const vector<offse
                  ib = get_gteq2(ib, b_end, s_m, step_size_b);
             } else {
                 offset_t b_m =  *ib - m;
-                while (is < s_end && *is < b_m) {
+                while (is != s_end && *is < b_m) {
                     ++is;
                 }
             }
@@ -500,13 +516,13 @@ get_non_overlapping_count(const vector<offset_t>& offsets, size_t m) {
 /*
  * Return Postings for Term s + b if s + b is repeated a sufficient number of times in each document
  *  otherwise an empty Postings
- *  Caller must guarantee that s and b are in all RequiredRepeats (and therefore
- *  are repeated a sufficient number of times in each document)
+ *  Caller must guarantee that s and b are valid (repeated a sufficient number of times in each document)
  *
  *  Params:
  *      inverted_index: The InvertedIndex
  *      term_postings_map: All Posting of current term length !@#$ Could get this from InvertedIndex
- *      b_offsets: All offsets of Term b in a document
+ *      s: A valid length m term
+ *      b: A vaild length 1 term
  *  Returns:
  *      Offsets of all s + b Terms in the document
  */
@@ -518,7 +534,7 @@ get_sb_postings(const InvertedIndex *inverted_index,
 
     unsigned int m = (unsigned int)s.size();
     const Postings& s_postings = term_postings_map.at(s);
-    const Postings& b_postings = inverted_index->_postings_map.at(b);
+    const Postings& b_postings = inverted_index->_byte_postings_map.at(b);
     Postings sb_postings;
 
     const map<int, RequiredRepeats>& docs_map = inverted_index->_docs_map;
@@ -743,7 +759,7 @@ RepeatsResults
 get_all_repeats(InvertedIndex *inverted_index, size_t max_substring_len) {
 
     // Postings Map of terms of length 1
-    const map<Term, Postings>& byte_postings_map = inverted_index->_postings_map;
+    const map<Term, Postings>& byte_postings_map = inverted_index->_byte_postings_map;
 
     // Postings Map of terms of length m + 1 is constructed from from terms of length m
     map<Term, Postings> term_m_postings_map = copy_map(byte_postings_map);
@@ -834,7 +850,7 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_substring_len) {
              << repeated_bytes.size() << " bytes = "
              << repeated_terms.size() * repeated_bytes.size() << " ("
              << get_map_vector_size(valid_s_b) << " valid), "
-             << inverted_index->size() << " total offsets"
+             << term_m_postings_map.size() << " total offsets"
              << endl;
 #endif
 

@@ -211,6 +211,7 @@ get_gteq2(typename std::vector<T>::const_iterator begin2,
         std::vector<T>::const_iterator end = begin + step_size;
         if (val <= *(end - 1)) {
             // We are in range [begin, end)
+            // upper_bound = lowest value > val => upper_bound - 1 is lowest value >= val 
             std::vector<T>::const_iterator ge = std::upper_bound(begin, end, val) - 1;
             return (val == *ge) ? ge : ge + 1;
         }
