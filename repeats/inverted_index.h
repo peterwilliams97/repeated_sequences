@@ -35,9 +35,13 @@ const int MAX_SUBSTRING_LEN = 100;
 struct InvertedIndex;
 
 struct RepeatsResults {
-    bool _converged;
-    std::vector<Term> _longest;
-    std::vector<Term> _exact;
+    const bool _converged;                // Did search converge?
+    const std::vector<Term> _valid;     // Longest terms that matched at least the required number of times per doc
+    const std::vector<Term> _exact;       // Longest Terms that matched the exact number of times per doc
+
+    RepeatsResults(bool converged, const std::vector<Term> valid, const std::vector<Term> exact):
+        _converged(converged), _valid(valid), _exact(exact) {}
+
 };
 
 // Create an inverted index from a list of files in filename that have
@@ -46,9 +50,6 @@ InvertedIndex *create_inverted_index(const std::vector<RequiredRepeats>& require
 
 // Free up all the resources in the InvertedIndex
 void delete_inverted_index(InvertedIndex *inverted_index);
-
-// Show the contents of the inverted index
-void show_inverted_index(const std::string& title, const InvertedIndex *inverted_index);
 
 // Return the longest substrings that are repeated the specified
 // number of times
