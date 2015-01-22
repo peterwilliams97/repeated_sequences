@@ -3,6 +3,10 @@
 
 #include <string>
 #include <vector>
+//#include <iostream>
+//#include <sstream>
+//#include <iterator>
+
 #if 0
 #include <map>
 #define Map map
@@ -69,7 +73,14 @@ byte_to_term(byte b) {
 inline
 std::string
 term_to_string(const Term& term) {
-    return std::string("!@#$");
+    std::vector<char> char_vec;
+
+    for (std::vector<int>::const_iterator it = term.begin(); it != term.end(); ++it) {
+        char c = *it >= 0 ? (char)(byte)*it : '.';
+        char_vec.push_back(c);
+    }
+
+    return std::string(char_vec.begin(), char_vec.end());
 }
 
 inline

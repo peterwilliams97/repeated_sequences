@@ -664,6 +664,7 @@ is_part_of_cdca(const Term& str) {
 static
 bool
 is_allowed_for_printer(const Term& str) {
+    return true;
 #if 1
     if (is_part_of_cdca(str)) {
         return false;
