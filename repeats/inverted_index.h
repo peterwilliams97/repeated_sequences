@@ -29,20 +29,19 @@
  *  delete_inverted_index(inverted_index);
  */
 
-const int MAX_SUBSTRING_LEN = 100;
-
-// Opaque struct
-struct InvertedIndex;
+// !@#$ Should be a settable parameter
+#define MAX_SUBSTRING_LEN 100
 
 struct RepeatsResults {
-    const bool _converged;                // Did search converge?
-    const std::vector<Term> _valid;     // Longest terms that matched at least the required number of times per doc
-    const std::vector<Term> _exact;       // Longest Terms that matched the exact number of times per doc
+    const bool _converged;                  // Did search converge?
+    const std::vector<Term> _valid;         // Longest terms that matched at least the required number of times per doc
+    const std::vector<Term> _exact;         // Longest Terms that matched the exact number of times per doc
 
     RepeatsResults(bool converged, const std::vector<Term> valid, const std::vector<Term> exact):
         _converged(converged), _valid(valid), _exact(exact) {}
-
 };
+
+struct InvertedIndex;
 
 // Create an inverted index from a list of files in filename that have
 // their number of repeats encoded like "repeats=5.txt"

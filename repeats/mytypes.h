@@ -29,7 +29,7 @@ typedef unsigned int offset_t;
 /*
  * A Term can be a string or sequence of bytes  !@#$
  */
-#define TERM_IS_SEQUENCE 0
+#define TERM_IS_SEQUENCE 1
 
 #if !TERM_IS_SEQUENCE
 typedef std::string Term;
