@@ -1,6 +1,8 @@
 #include "inverted_index.h"
 #include "inverted_index_int.h"
 
+#if !TERM_IS_SEQUENCE
+
 using namespace std;
 
 /*
@@ -229,9 +231,9 @@ inline
 Postings
 get_sb_postings(const InvertedIndex *inverted_index,
                 const map<Term, Postings>& term_postings_map,
-                const Term& s, const Term& b) {
+                const Term& s, byte b) {
 
-    unsigned int m = (unsigned int)s.size();
+    offset_t m = (offset_t)s.size();
     const Postings& s_postings = term_postings_map.at(s);
     const Postings& b_postings = inverted_index->_byte_postings_map.at(b);
     Postings sb_postings;
@@ -459,10 +461,10 @@ RepeatsResults
 get_all_repeats(InvertedIndex *inverted_index, size_t max_term_len) {
 
     // Postings Map of terms of length 1
-    const map<Term, Postings>& byte_postings_map = inverted_index->_byte_postings_map;
+    const map<byte, Postings>& byte_postings_map = inverted_index->_byte_postings_map;
 
     // Postings Map of terms of length m + 1 is constructed from from terms of length m
-    map<Term, Postings> term_postings_map = copy_map(byte_postings_map);
+    map<Term, Postings> term_postings_map = copy_map_byte_term(byte_postings_map);
 
 #if VERBOSITY >= 1
     cout << "get_all_repeats: valid_bytes=" << byte_postings_map.size()
@@ -470,7 +472,7 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_term_len) {
          << ",max_term_len=" << max_term_len
          << endl;
 #endif
-    const vector<Term> valid_bytes = get_keys_vector(byte_postings_map);
+    const vector<byte> valid_bytes = get_keys_vector(byte_postings_map);
     vector<Term> valid_terms = get_keys_vector(term_postings_map);
 
     // Track the last case of exact matches
@@ -520,13 +522,13 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_term_len) {
          * valid_s_b[s][b] contains only s, b such that (s + b)[:-1] and (s + b)[1:]
          * are elements of valid_terms
          */
-        map<Term, vector<Term>> valid_s_b;
+        map<Term, vector<byte>> valid_s_b;
         for (vector<Term>::const_iterator is = valid_terms.begin(); is != valid_terms.end(); ++is) {
             const Term& s = *is;
-            vector<Term> extension_bytes;
-            for (vector<Term>::const_iterator ib = valid_bytes.begin(); ib != valid_bytes.end(); ++ib) {
-                const Term& b = *ib;
-                if (binary_search(valid_terms.begin(), valid_terms.end(), slice(concat(s, b), 1))) {
+            vector<byte> extension_bytes;
+            for (vector<byte>::const_iterator ib = valid_bytes.begin(); ib != valid_bytes.end(); ++ib) {
+                byte b = *ib;
+                if (binary_search(valid_terms.begin(), valid_terms.end(), slice(extend_term_byte(s, b), 1))) {
                     extension_bytes.push_back(b);
                 }
             }
@@ -541,17 +543,17 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_term_len) {
         // Replace term_postings_map[s] with term_m1_postings_map[s + b] for all b in bytes that
         // have survived the valid_s_b filtering above
         // This cannot increase total number of offsets as each s + b starts with s
-        for (map<Term, vector<Term>>::const_iterator iv = valid_s_b.begin(); iv != valid_s_b.end(); ++iv) {
+        for (map<Term, vector<byte>>::const_iterator iv = valid_s_b.begin(); iv != valid_s_b.end(); ++iv) {
 
             const Term& s = iv->first;
-            const vector<Term>& bytes = iv->second;
-            for (vector<Term>::const_iterator ib = bytes.begin(); ib != bytes.end(); ++ib) {
-                const Term& b = *ib;
+            const vector<byte>& bytes = iv->second;
+            for (vector<byte>::const_iterator ib = bytes.begin(); ib != bytes.end(); ++ib) {
+                byte b = *ib;
                 const Postings postings = get_sb_postings(inverted_index, term_postings_map, s, b);
                 if (postings.empty()) {
                     continue;
                 }
-                const Term s_b = concat(s, b);
+                const Term s_b = extend_term_byte(s, b);
 
                 // Hand tuning!!
                 if (!is_allowed_for_printer(s_b)) {
@@ -585,3 +587,4 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_term_len) {
     return RepeatsResults(converged, valid_terms, exact_matches);
 }
 
+#endif // #if !TERM_IS_SEQUENCE

@@ -10,9 +10,6 @@
  * Use an inverted index to find the longest term(s) that is repeated
  *  a specified number of times in a corpus of documents.
  *
-const int MAX_SUBSTRING_LEN = 100;
-
-/*
  * An InvertedIndex is a map of Postings of a set of terms across
  *  all documents in a corpus.
  *
@@ -32,21 +29,21 @@ struct InvertedIndex {
 
     // `_postings_map[term]` is the Postings of Term `term`
     // !@#$ Separate byte Postings map
-    std::map<Term, Postings> _byte_postings_map;
+    std::map<byte, Postings> _byte_postings_map;
 
     // `_docs_map[i]` = path + min required repeats of document index i.
     //  The Postings in `_postings_map` index into this map
     std::map<int, RequiredRepeats> _docs_map;
 
-    // `_allowed_terms` is all valid terms
-    std::set<Term> _allowed_bytes;
+    // `_allowed_bytes` is all valid bytes
+    std::set<byte> _allowed_bytes;
 
 private:
     InvertedIndex();
 
 public:
     InvertedIndex(const std::vector<RequiredRepeats>& required_repeats_list, int n_bad_allowed);
-    void add_doc(const RequiredRepeats& required_repeats, const std::map<Term, std::vector<offset_t>>& term_offsets);
+    void add_doc(const RequiredRepeats& required_repeats, const std::map<byte, std::vector<offset_t>>& byte_offsets);
 
 };
 

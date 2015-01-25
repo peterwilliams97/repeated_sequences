@@ -143,6 +143,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="find_best_sequences.cpp" />
     <ClCompile Include="find_best_strings.cpp" />
     <ClCompile Include="inverted_index.cpp" />
     <ClCompile Include="main.cpp" />

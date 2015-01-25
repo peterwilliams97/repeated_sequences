@@ -65,7 +65,7 @@ show_bytes(const Term& term) {
 void
 print_term_vector(const string& name, const vector<Term>& lst_in, size_t n) {
     vector<Term>& lst = vector<Term>(lst_in.begin(), lst_in.end());
-    std::sort(lst.begin(), lst.end());
+    sort(lst.begin(), lst.end());
 
     cout << name << ": " << lst.size() << " [";
     vector<Term>::const_iterator end = lst.begin() + min(n, lst.size());

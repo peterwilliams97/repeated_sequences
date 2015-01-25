@@ -17,6 +17,12 @@
 //#define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define NUMELEMS(a) (sizeof(a) / sizeof(a[0]))
 
+inline
+int
+Ceil(double x) {
+    return (int)ceil(x);
+}
+
 /*
  * D() is for debugging
  */
@@ -106,6 +112,18 @@ copy_map(const std::map<K, V>& mp) {
     return result;
 }
 
+template <class V>
+std::map<Term, V>
+copy_map_byte_term(const std::map<byte, V>& mp) {
+    std::map<Term, V> result;
+    for (std::map<byte, V>::const_iterator it = mp.begin(); it != mp.end(); ++it) {
+        byte key = it->first;
+        V val = it->second;
+        result[byte_to_term(key)] = val;
+    }
+    return result;
+}
+
 /*
  * Print list lst to stdout
  */
@@ -155,6 +173,16 @@ get_map_vector_size(const std::map<K, std::vector<V>>& mp) {
     size_t size = 0;
     for (std::map<K, std::vector<V>>::const_iterator it = mp.begin(); it != mp.end(); ++it) {
         size += it->second.size();
+    }
+    return size;
+}
+
+template <class K1, class K2, class V>
+size_t
+get_map_map_vector_size(const std::map<K1, std::map<K2, std::vector<V>>>& mp) {
+    size_t size = 0;
+    for (std::map<K1, std::map<K2, std::vector<V>>>::const_iterator it = mp.begin(); it != mp.end(); ++it) {
+        size += get_map_vector_size(it->second);
     }
     return size;
 }
@@ -211,7 +239,7 @@ get_gteq2(typename std::vector<T>::const_iterator begin2,
         std::vector<T>::const_iterator end = begin + step_size;
         if (val <= *(end - 1)) {
             // We are in range [begin, end)
-            // upper_bound = lowest value > val => upper_bound - 1 is lowest value >= val 
+            // upper_bound = lowest value > val => upper_bound - 1 is lowest value >= val
             std::vector<T>::const_iterator ge = std::upper_bound(begin, end, val) - 1;
             return (val == *ge) ? ge : ge + 1;
         }
