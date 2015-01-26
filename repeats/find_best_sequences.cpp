@@ -545,7 +545,7 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_term_len) {
     bool show_exact_matches = false;
 
     // Myers' epsilon. Ratio of non-wildcards to term length   !@#$ Function argument.
-    double epsilon = 1.0;
+    double epsilon = 0.9;
 
     // Each pass through this for loop builds offsets of terms of length m + 1 from
     // offsets of terms of length <= m
@@ -626,7 +626,7 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_term_len) {
             }
         }
 
-        // Postings of length m + 1 terms
+        // Postings of length <= m + 1 terms genereated in this pass
         map<Term, Postings> term_m1_postings_map;
 
         // Build term_m1_postings_map[s<g>b] for all gaps g and bytes b in valid_s_g_b 
@@ -677,8 +677,47 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_term_len) {
             break;
         }
 
+#if 0
         term_postings_map_list[m + 1] = term_m1_postings_map;
         valid_terms_list[m + 1] = get_keys_vector(term_m1_postings_map);
+#else
+        term_postings_map_list[m + 1] = map<Term, Postings>();
+        valid_terms_list[m + 1] = vector<Term>();
+        for (map<Term, Postings>::const_iterator it = term_m1_postings_map.begin(); it != term_m1_postings_map.end(); ++it) {
+            const Term& term = it->first;
+            const Postings& postings = it->second;
+            offset_t mm = offset_t(term.size());
+            term_postings_map_list[mm][term] = postings; 
+            valid_terms_list[mm].push_back(term);
+#if 1
+            {
+                const vector<Term> valid_terms = valid_terms_list[mm];
+                for (vector<Term>::const_iterator is = valid_terms.begin(); is != valid_terms.end(); ++is) {
+                    const Term& termm = *is;
+                    assert(termm.size() == mm);
+                }
+            }
+#endif
+        }
+#endif
+
+#if 1
+        {
+            const vector<Term> valid_terms = valid_terms_list[m + 1];
+            for (vector<Term>::const_iterator it = valid_terms.begin(); it != valid_terms.end(); ++it) {
+                const Term& term = *it;
+                assert(term.size() == m + 1);
+            }
+        }
+
+        for (offset_t i = 0; i <= m + 1; ++i) {
+             const vector<Term> valid_terms = valid_terms_list[i];
+             for (vector<Term>::const_iterator it = valid_terms.begin(); it != valid_terms.end(); ++it) {
+                const Term& term = *it;
+                assert(term.size() == i);
+             }
+        }
+#endif
     }
 
     return RepeatsResults(converged, valid_terms_list[m], exact_matches);
