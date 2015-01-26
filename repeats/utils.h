@@ -87,6 +87,27 @@ get_keys_vector(const std::map<K, V> &mp) {
     return keys;
 }
 
+template <class K, class V>
+std::vector<std::vector<K>>
+get_keys_vector_list(const std::vector<std::map<K, V>> &map_list) {
+    std::vector<std::vector<K>> keys_list;
+    keys_list.reserve(map_list.size());
+    for (std::vector<std::map<K, V>>::const_iterator it = map_list.begin(); it != map_list.end(); ++it) {
+        keys_list.push_back(get_keys_vector(*it));
+    }
+    return keys_list;
+}
+
+template <class V>
+int
+get_vector_list_size(const std::vector<std::vector<V>> &vector_list) {
+    int size = 0;
+    for (std::vector<std::vector<V>>::const_iterator it = vector_list.begin(); it != vector_list.end(); ++it) {
+        size += (int)it->size();
+    }
+    return size;
+}
+
 /*
  * Return keys of map mp as a set
  */

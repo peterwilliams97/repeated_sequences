@@ -26,6 +26,8 @@ typedef unsigned char byte;
 //  size over the raw data
 typedef unsigned int offset_t;
 
+#define INNER_LOOP 4
+#define TRACK_EXACT_MATCHES 0
 /*
  * A Term can be a string or sequence of bytes  !@#$
  */

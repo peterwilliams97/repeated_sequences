@@ -19,6 +19,9 @@ size_t
 get_file_size(const string& path) {
     struct stat filestatus;
     int ret = stat(path.c_str(), &filestatus);
+    if (ret != 0) {
+        cerr << "Can't stat '" << path << ", errno=" << errno << endl;
+    }
     assert(ret == 0);
     return filestatus.st_size;
 }

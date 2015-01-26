@@ -1,4 +1,4 @@
-﻿TODO
+TODO
 ----
 * Binary search on strings, linear search on bytes
 * Raw binary search
@@ -19,6 +19,7 @@
 * set -> unordered_set
 * suffix array
 * neighborhoods
+* parametrize: show_exact_matches, epsilon
 
 
 Sequence Search

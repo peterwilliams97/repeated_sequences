@@ -35,7 +35,7 @@ struct Postings {
     // (The containers do this by default)
     Postings() : _total_terms(0) {}
 
-    // Add `offsets` which contains all offsets for document with index `doc_offset` to this Postings
+    // Add `offsets` which contains all offsets for document with index `doc_index` to this Postings
     // i.e. _offsets_map[doc_index] <- offsets
     void add_offsets(int doc_index, const std::vector<offset_t>& offsets) {
         _doc_indexes.push_back(doc_index);

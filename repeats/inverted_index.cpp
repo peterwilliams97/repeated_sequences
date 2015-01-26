@@ -4,7 +4,6 @@
  *
  * Documentation in https://github.com/peterwilliams97/repeated_sequences
  */
-#define INNER_LOOP 4
 
 #include <assert.h>
 #include <iostream>
@@ -201,6 +200,7 @@ struct VersionInfo {
     VersionInfo() {
         cout << "TERM_IS_SEQUENCE = " << TERM_IS_SEQUENCE << endl;
         cout << "INNER_LOOP = " << INNER_LOOP << endl;
+        cout << "TRACK_EXACT_MATCHES = " << TRACK_EXACT_MATCHES << endl;
         cout << "Sizes of main types" << endl;
         cout << "offset_t size = " << sizeof(offset_t) << " bytes" << endl;
         cout << "Postings size = " << sizeof(Postings) << " bytes" << endl;

@@ -1,7 +1,8 @@
+#include <assert.h>
 #include "inverted_index.h"
 #include "inverted_index_int.h"
 
-#if !TERM_IS_SEQUENCE
+#if TERM_IS_SEQUENCE
 
 using namespace std;
 
@@ -30,14 +31,15 @@ using namespace std;
  * THIS IS THE INNER LOOP
  *
  *  Params:
- *      s_offsets: All offsets of Term s in a document
- *      m: length of Term s
+ *      s_offsets: All offsets of term s in a document
+ *      m: offset of m - offset of b to check. i.e. m = |s| + gap for s<gap>b
  *      b_offsets: All offsets of Term b in a document
  *  Returns:
- *      Offsets of all s + b Terms in the document
+ *      Offsets of all s<gap>b Terms in the document
  *
  * Basic idea is to keep 2 pointers and move the one behind and record matches of
  *  *is + m == *ib
+ * Only tested for  INNER_LOOP==4
  */
 inline
 const vector<offset_t>
@@ -189,6 +191,7 @@ get_non_overlapping_strings(const vector<offset_t>& offsets, size_t m) {
 }
 #endif
 
+// Return number of offsets that are for non-overlapping terms
 // This is a bit slow. Should calculate and store this value when creating strings list
 size_t
 get_non_overlapping_count(const vector<offset_t>& offsets, size_t m) {
@@ -216,26 +219,30 @@ get_non_overlapping_count(const vector<offset_t>& offsets, size_t m) {
 }
 
 /*
- * Return Postings for term s + b if s + b is repeated a sufficient number of times in each document
+ * s<gap>b := Term s followed by gap wildcards followe by byte b
+ *  e.g. AB.C term=AB:gap=1,byte=C  or A.B..C:term=A.B:gap=2,byte=C
+ *
+ * Return Postings for term s<gap>b if s<gap>b is repeated a sufficient number of times in each document
  *  otherwise an empty Postings
  *  Caller must guarantee that s and b are valid (repeated a sufficient number of times in each document)
  *
  *  Params:
  *      inverted_index: The InvertedIndex
- *      term_postings_map: All Posting of current term length !@#$ Could get this from InvertedIndex
+ *      term_postings_map_list: term_postings_map_list[m] = All Posting of length m
  *      s: A valid length m term
+ *      gap: Number of chars between end of s and b
  *      b: A vaild length 1 term
  *  Returns:
- *      Offsets of all s + b Terms in the document
+ *      Offsets of all s<gap>b Terms in the document
  */
 inline
 Postings
 get_sb_postings(const InvertedIndex *inverted_index,
-                const map<Term, Postings>& term_postings_map,
-                const Term& s, byte b) {
+                const vector<map<Term, Postings>>& term_postings_map_list,
+                const Term& s, offset_t gap, byte b) {
 
     offset_t m = (offset_t)s.size();
-    const Postings& s_postings = term_postings_map.at(s);
+    const Postings& s_postings = term_postings_map_list[m].at(s);
     const Postings& b_postings = inverted_index->_byte_postings_map.at(b);
     Postings sb_postings;
 
@@ -246,7 +253,7 @@ get_sb_postings(const InvertedIndex *inverted_index,
         const vector<offset_t>& s_offsets = s_postings._offsets_map.at(doc_index);
         const vector<offset_t>& b_offsets = b_postings._offsets_map.at(doc_index);
 
-        vector<offset_t> sb_offsets = get_sb_offsets(s_offsets, m, b_offsets);
+        vector<offset_t> sb_offsets = get_sb_offsets(s_offsets, m + gap, b_offsets);
 
         /*
          * Only count non-overlapping offsets when checking validity.
@@ -278,6 +285,7 @@ get_sb_postings(const InvertedIndex *inverted_index,
         sb_postings.add_offsets(doc_index, sb_offsets);
     }
 
+
 #if VERBOSITY >= 3
     cout << " matched '" << s + b + "' for " << sb_postings.size() << " docs" << endl;
 #endif
@@ -285,20 +293,7 @@ get_sb_postings(const InvertedIndex *inverted_index,
 }
 
 #if 0
-
-inline bool
-is_exact_match(map<int, RequiredRepeats>& docs_map,
-               const map<int, offset_t>& doc_counts) {
-    for (map<int, offset_t>::const_iterator it = doc_counts.begin(); it != doc_counts.end(); ++it) {
-        int key = it->first;
-        const RequiredRepeats& rr = docs_map[key];
-        if (rr._num != it->second) {
-            return false;
-        }
-    }
-    return true;
-}
-
+static
 map<string, map<int, offset_t>>
 get_valid_string_counts(const map<string, Postings>& term_postings_map) {
     map<string, map<int, offset_t>> string_counts;
@@ -313,10 +308,27 @@ get_valid_string_counts(const map<string, Postings>& term_postings_map) {
     }
     return string_counts;
 }
+#endif
+
+#if TRACK_EXACT_MATCHES
+
+inline 
+bool
+is_exact_match(const map<int, RequiredRepeats>& docs_map,
+               const map<int, offset_t>& doc_counts) {
+    for (map<int, offset_t>::const_iterator it = doc_counts.begin(); it != doc_counts.end(); ++it) {
+        int key = it->first;
+        const RequiredRepeats& rr = docs_map[key];
+        if (rr._num != it->second) {
+            return false;
+        }
+    }
+    return true;
+}
 
 inline
 vector<string>
-get_exact_matches(map<int, RequiredRepeats>& docs_map,
+get_exact_matches(const map<int, RequiredRepeats>& docs_map,
                   const map<string, map<int, offset_t>>& string_counts) {
     vector<string> exact_matches;
     for (map<string, map<int, offset_t>>::const_iterator it = string_counts.begin(); it != string_counts.end(); ++it) {
@@ -440,6 +452,46 @@ get_exact_matches(const map<int, RequiredRepeats>& docs_map,
 }
 
 /*
+    longest terms: |term| == m + 1
+            fraction wild cards <= 1 - epsilon
+            NOTE: This determines shortest terms to keep
+                w(term) := # wildcards in term
+                #wildcards at len m + 1 = w(term) + gap
+                                        = w(term) + m - |term|
+                Allowed #wildcards = (1 - epsilon) x (m + 1)
+                Limit: w(term) + m - |term| <= (1 - epsilon) x (m + 1)
+
+        extendable_terms = terms that satisfy Limit
+    Params:
+        terms_list: terms_list[i] = valid terms of length i
+        epsilon: min fraction of non-wildcards in each term
+        m: m + 1 is length of terms to construct
+    Returns:
+        list of terms that can be extended to m + 1
+*/
+static
+const vector<Term>
+get_extendable_terms(const vector<vector<Term>> terms_list, double epsilon, offset_t m) {
+
+    vector<Term> extendable_terms;
+    double lim = (1 - epsilon) *( m + 1);
+    offset_t min_m = Ceil(epsilon * (m));
+    for (offset_t i = min_m; i <= m; i++) {
+        const vector<Term>& terms = terms_list[i];
+
+        for (vector<Term>::const_iterator it = terms.begin(); it != terms.end(); ++it) {
+            const Term& term = *it;
+            assert(term.size() == i);
+
+            if (num_wild(term) + m - i <= lim) {
+                extendable_terms.push_back(term);
+            }
+        }
+    }
+    return extendable_terms;
+}
+
+/*
  * Return the list of terms that are repeated a sufficient numbers of times in all documents
  *
  * THIS IS THE MAIN FUNCTION
@@ -465,17 +517,23 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_term_len) {
     // Postings Map of terms of length 1
     const map<byte, Postings>& byte_postings_map = inverted_index->_byte_postings_map;
 
-    // Postings Map of terms of length m + 1 is constructed from from terms of length m
-    map<Term, Postings> term_postings_map = copy_map_byte_term(byte_postings_map);
+    vector<map<Term, Postings>> term_postings_map_list(max_term_len + 1);
+    vector<vector<Term>> valid_terms_list(max_term_len + 1);
+
+    // Postings map of terms of length m + 1 is constructed from terms of length m
+    map<Term, Postings> term_postings_map_ = copy_map_byte_term(byte_postings_map);
+    term_postings_map_list[1] = term_postings_map_; 
+
+    const vector<byte> valid_bytes = get_keys_vector(byte_postings_map);
+    valid_terms_list[1] = get_keys_vector(term_postings_map_list[1]);
 
 #if VERBOSITY >= 1
     cout << "get_all_repeats: valid_bytes=" << byte_postings_map.size()
-         << ",repeated_strings=" << term_postings_map.size()
+         << ",repeated_strings=" << byte_postings_map.size()
          << ",max_term_len=" << max_term_len
          << endl;
 #endif
-    const vector<byte> valid_bytes = get_keys_vector(byte_postings_map);
-    vector<Term> valid_terms = get_keys_vector(term_postings_map);
+
 
     // Track the last case of exact matches
     vector<Term> exact_matches;
@@ -483,11 +541,22 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_term_len) {
     // Set converged to true if loop below converges
     bool converged = false;
 
+    // !@#$ Function argument.
     bool show_exact_matches = false;
 
-    // Each pass through this for loop builds offsets of substrings of length m + 1 from
-    // offsets of substrings of length m
-    for (offset_t m = 1; m <= max_term_len; m++) {
+    // Myers' epsilon. Ratio of non-wildcards to term length   !@#$ Function argument.
+    double epsilon = 1.0;
+
+    // Each pass through this for loop builds offsets of terms of length m + 1 from
+    // offsets of terms of length <= m
+    // What is m for a sequence? Lenght ??>? !@#$
+    offset_t m;
+    for (m = 1; m <= max_term_len; m++) {
+
+        // D = min allow number of non-wildcards in m + 1 round
+        // W = max allowed wildcards
+        int D = Ceil((m + 1) * epsilon);
+        int W = m + 1 - D;
 
 #if TRACK_EXACT_MATCHES
         {   // Keep track of exact matches
@@ -505,7 +574,8 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_term_len) {
 #if VERBOSITY >= 1
         // Report progress to stdout
         cout << "--------------------------------------------------------------------------" << endl;
-        cout << "get_all_repeats: len=" << m << ", num valid terms=" << valid_terms.size()
+        cout << "get_all_repeats: len=" << m << ", num valid terms=" 
+             << get_vector_list_size(valid_terms_list)
              << ", time= " << get_elapsed_time() << endl;
 #endif
 #if VERBOSITY >= 2
@@ -519,62 +589,86 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_term_len) {
          * Construct all possible length m + 1 terms from existing length m terms in valid_s_b
          * and filter out length m + 1 term that don't end with an existing length m term
          */
-
         /*
-         * valid_s_b[s][b] is later converted to s + b: s is length m, b is length 1
-         * valid_s_b[s][b] contains only s, b such that (s + b)[:-1] and (s + b)[1:]
+         * valid_s_g_b[s][g][b] is later converted to s<g>b: (s is length m, b is length 1)
+         * valid_s_g_b[s][g][b] contains only s, b such that (s + b)[:-1] and (s + b)[1:]
          * are elements of valid_terms
+         *
+         *  g = 0 => <b>
+         *  g = 1 => <.b> (trailing wildcards will be handled in next iteration: <b.>)
+         *  g = 2 => <..b> (leading non-wildcars <b..> <bb. > <b.b> <bbb>
+                                 and trailing wildcards <b..> <.b.> <bb.?
+                                 will be handled in next iteration
+                                 handled in g = 1 <.b>)
          */
-        map<Term, vector<byte>> valid_s_b;
-        for (vector<Term>::const_iterator is = valid_terms.begin(); is != valid_terms.end(); ++is) {
+        // Terms that can be extended to length m + 1 while obeying epsilon criterion
+        const vector<Term> extendable_terms = get_extendable_terms(valid_terms_list, epsilon, m);
+ 
+        cout << get_vector_list_size(valid_terms_list) << " valid => " 
+             << extendable_terms.size() << " extendable" << endl;
+
+        map<Term, map<int, vector<byte>>> valid_s_g_b;
+
+        for (vector<Term>::const_iterator is = extendable_terms.begin(); is != extendable_terms.end(); ++is) {
             const Term& s = *is;
-            vector<byte> extension_bytes;
-            for (vector<byte>::const_iterator ib = valid_bytes.begin(); ib != valid_bytes.end(); ++ib) {
-                byte b = *ib;
-                if (binary_search(valid_terms.begin(), valid_terms.end(), slice(extend_term_byte(s, b), 1))) {
-                    extension_bytes.push_back(b);
+            int max_g = W - num_wild(s);
+            map<int, vector<byte>> extension_gaps_bytes;
+
+            for (int g = 0; g <= max_g; g++) {
+                vector<byte> extension_bytes;
+                for (vector<byte>::const_iterator ib = valid_bytes.begin(); ib != valid_bytes.end(); ++ib) {
+                    extension_bytes.push_back(*ib);
                 }
+                extension_gaps_bytes[g] = extension_bytes;
             }
-            if (extension_bytes.size() > 0) {
-                valid_s_b[s] = extension_bytes;
+            if (extension_gaps_bytes.size() > 0) {
+                valid_s_g_b[s] = extension_gaps_bytes;
             }
         }
 
         // Postings of length m + 1 terms
         map<Term, Postings> term_m1_postings_map;
 
-        // Replace term_postings_map[s] with term_m1_postings_map[s + b] for all b in bytes that
-        // have survived the valid_s_b filtering above
-        // This cannot increase total number of offsets as each s + b starts with s
-        for (map<Term, vector<byte>>::const_iterator iv = valid_s_b.begin(); iv != valid_s_b.end(); ++iv) {
-
+        // Build term_m1_postings_map[s<g>b] for all gaps g and bytes b in valid_s_g_b 
+        // This cannot increase total number of offsets as each s<g>b starts with s
+        for (map<Term, map<int, vector<byte>>>::const_iterator iv = valid_s_g_b.begin(); iv != valid_s_g_b.end(); ++iv) {
             const Term& s = iv->first;
-            const vector<byte>& bytes = iv->second;
-            for (vector<byte>::const_iterator ib = bytes.begin(); ib != bytes.end(); ++ib) {
-                byte b = *ib;
-                const Postings postings = get_sb_postings(inverted_index, term_postings_map, s, b);
-                if (postings.empty()) {
-                    continue;
-                }
-                const Term s_b = extend_term_byte(s, b);
+            const map<int, vector<byte>>& g_b = iv->second;
 
-                // Hand tuning!!
-                if (!is_allowed_for_printer(s_b)) {
-                   continue;
-                }
+            for (map<int, vector<byte>>::const_iterator ig = g_b.begin(); ig != g_b.end(); ++ig) {
+                int gap = ig->first;
+                const vector<byte>& bytes = ig->second;
 
-                term_m1_postings_map[s_b] = postings;
+                for (vector<byte>::const_iterator ib = bytes.begin(); ib != bytes.end(); ++ib) {
+                    byte b = *ib;
+                    const Postings postings = get_sb_postings(inverted_index, term_postings_map_list, s, gap, b);
+                    if (postings.empty()) {
+                        continue;
+                    }
+                    const Term s_g_b = extend_term_gap_byte(s, gap, b);
+
+                    // Hand tuning!!
+                    if (!is_allowed_for_printer(s_g_b)) {
+                       continue;
+                    }
+
+                    term_m1_postings_map[s_g_b] = postings;
+                }
             }
         }
 
 #if VERBOSITY >= 1
         //print_vector("   valid_s_b", get_keys_vector(valid_s_b));
-        cout << valid_terms.size() << " terms * "
+        cout << extendable_terms.size() << " terms * "
              << valid_bytes.size() << " bytes = "
-             << valid_terms.size() * valid_bytes.size() << " ("
-             << get_map_vector_size(valid_s_b) << " valid) = "
+             << extendable_terms.size() * valid_bytes.size() << " ("
+             << get_map_map_vector_size(valid_s_g_b) << " valid) = "
              << term_m1_postings_map.size() << " filtered"
              << endl;
+
+        cout << get_vector_list_size(valid_terms_list) << " total "
+             << endl;
+
 #endif
 
         // If there are no matches then we were done in the last pass
@@ -583,11 +677,11 @@ get_all_repeats(InvertedIndex *inverted_index, size_t max_term_len) {
             break;
         }
 
-        term_postings_map = term_m1_postings_map;
-        valid_terms = get_keys_vector(term_postings_map);
+        term_postings_map_list[m + 1] = term_m1_postings_map;
+        valid_terms_list[m + 1] = get_keys_vector(term_m1_postings_map);
     }
 
-    return RepeatsResults(converged, valid_terms, exact_matches);
+    return RepeatsResults(converged, valid_terms_list[m], exact_matches);
 }
 
-#endif // #if !TERM_IS_SEQUENCE
+#endif // #if TERM_IS_SEQUENCE
